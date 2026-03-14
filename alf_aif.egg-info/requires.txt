@@ -1,0 +1,15 @@
+jax>=0.4.20
+jaxlib>=0.4.20
+numpy>=1.24
+
+[dev]
+alf-aif[learning,test]
+ruff
+mypy
+
+[learning]
+optax>=0.1.7
+
+[test]
+pytest>=7.0
+pytest-xdist

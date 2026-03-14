@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alf-aif"
+version = "0.1.0"
+description = "Active inference/Learning Framework — standalone JAX-native active inference"
+readme = {text = "Active inference/Learning Framework", content-type = "text/plain"}
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    {name = "Morgan Hough"},
+]
+keywords = ["active-inference", "free-energy-principle", "jax", "bayesian", "POMDP"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "jax>=0.4.20",
+    "jaxlib>=0.4.20",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+learning = ["optax>=0.1.7"]
+test = ["pytest>=7.0", "pytest-xdist"]
+dev = ["alf-aif[learning,test]", "ruff", "mypy"]
+
+[project.urls]
+Homepage = "https://github.com/m9h/alf"
+Repository = "https://github.com/m9h/alf"
+
+[tool.setuptools.packages.find]
+include = ["alf*"]
+
+[tool.pytest.ini_options]
+testpaths = ["alf/tests"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
