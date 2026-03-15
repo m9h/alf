@@ -54,6 +54,12 @@ from alf.deep_aif import init_transition
 from alf.deep_aif import encode
 from alf.deep_aif import predict_transition
 from alf.deep_aif import extract_A_matrix
+from alf.hierarchical import HierarchicalLevel
+from alf.hierarchical import HierarchicalGenerativeModel
+from alf.hierarchical import hierarchical_infer
+from alf.hierarchical import hierarchical_efe
+from alf.hierarchical import evaluate_all_policies_hierarchical
+from alf.hierarchical import HierarchicalAgent
 
 __version__ = "0.1.0"
 
@@ -79,4 +85,10 @@ __all__ = [
     "encode",
     "predict_transition",
     "extract_A_matrix",
+    "HierarchicalLevel",
+    "HierarchicalGenerativeModel",
+    "hierarchical_infer",
+    "hierarchical_efe",
+    "evaluate_all_policies_hierarchical",
+    "HierarchicalAgent",
 ]

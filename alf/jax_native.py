@@ -18,6 +18,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+from alf.sequential_efe import jax_evaluate_all_policies_sequential
+
 
 def jax_softmax(x: jnp.ndarray) -> jnp.ndarray:
     """Numerically stable softmax in JAX."""
@@ -177,11 +179,21 @@ class BatchAgent:
         self.B_jax = [jnp.array(b) for b in gm.B]
         self.C_jax = [jnp.array(c) for c in gm.C]
 
+        # Pre-compute policies as JAX array for sequential EFE evaluation.
+        # policies shape: (num_policies, T, num_factors) -> extract single
+        # factor action sequences: (num_policies, T)
+        self.policies_jax = jnp.array(gm.policies[:, :, 0])
+
     def step_analytic(
         self,
         observations: np.ndarray,
     ) -> tuple[np.ndarray, dict]:
         """Perform one step for all agents using analytic EFE.
+
+        Evaluates all policies (multi-step action sequences) using sequential
+        EFE, matching the approach in AnalyticAgent.step(). For T=1 models
+        this is equivalent to single-step EFE per action; for T>1 it correctly
+        evaluates all T-step policies.
 
         Args:
             observations: Observation indices, shape (batch_size,).
@@ -205,16 +217,25 @@ class BatchAgent:
 
         self.beliefs[0] = jax.vmap(update_belief)(self.beliefs[0], obs)
 
+        # Evaluate EFE for all policies (not just single actions).
+        # G_batch shape: (batch_size, num_policies)
         G_batch = jax.vmap(
-            lambda b: jax_evaluate_all_actions(A, B, C, b)
+            lambda b: jax_evaluate_all_policies_sequential(
+                A, B, C, b, self.policies_jax
+            )
         )(self.beliefs[0])
 
         self.key, *subkeys = jax.random.split(self.key, self.batch_size + 1)
         keys = jnp.stack(subkeys)
 
-        actions, probs = jax.vmap(
+        # Select policy from posterior over policies.
+        # selected_indices shape: (batch_size,) -- indices into policies
+        selected_indices, probs = jax.vmap(
             jax_select_action, in_axes=(0, 0, None, 0)
         )(G_batch, self.E, self.gamma, keys)
+
+        # Extract the first action from each selected policy
+        actions = self.policies_jax[selected_indices, 0]
 
         return np.array(actions), {
             "beliefs": [np.array(b) for b in self.beliefs],
