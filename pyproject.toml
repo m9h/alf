@@ -27,8 +27,12 @@ dependencies = [
 
 [project.optional-dependencies]
 learning = ["optax>=0.1.7"]
-test = ["pytest>=7.0", "pytest-xdist"]
-dev = ["alf-aif[learning,test]", "ruff", "mypy"]
+metacognition = ["numpyro>=0.13.0", "scipy>=1.10"]
+ddm = ["scipy>=1.10"]
+normative = ["scipy>=1.10"]
+all = ["alf-aif[learning,metacognition,ddm,normative]"]
+test = ["pytest>=7.0", "pytest-xdist", "scipy>=1.10"]
+dev = ["alf-aif[all,test]", "ruff", "mypy"]
 
 [project.urls]
 Homepage = "https://github.com/m9h/alf"

@@ -13,6 +13,12 @@ Modules:
     learning: Differentiable HMM learning via forward algorithm.
     policy: Action selection, habit learning, precision updating.
     agent: AnalyticAgent wrapping the full AIF loop.
+    multitask: Hierarchical/compositional generative models for task batteries.
+    multitask_agent: MultitaskAgent for switching between cognitive tasks.
+    hgf: Hierarchical Gaussian Filter for continuous belief updating.
+    metacognition: Meta-d' estimation and precision calibration.
+    ddm: Drift-Diffusion Models with Navarro-Fuss likelihood.
+    normative: Normative modeling with Bayesian Linear Regression.
 
 Example:
     >>> import alf
@@ -54,12 +60,58 @@ from alf.deep_aif import init_transition
 from alf.deep_aif import encode
 from alf.deep_aif import predict_transition
 from alf.deep_aif import extract_A_matrix
+from alf.deep_aif import DecoderGenerativeModel
+from alf.deep_aif import DecoderLearningResult
+from alf.deep_aif import init_decoder
+from alf.deep_aif import decode
+from alf.deep_aif import decoder_log_likelihood
+from alf.deep_aif import decoder_analytic_nll
+from alf.deep_aif import learn_decoder_model
+from alf.deep_aif import init_gaussian_decoder
+from alf.deep_aif import gaussian_decode
+from alf.deep_aif import gaussian_log_likelihood
 from alf.hierarchical import HierarchicalLevel
 from alf.hierarchical import HierarchicalGenerativeModel
 from alf.hierarchical import hierarchical_infer
 from alf.hierarchical import hierarchical_efe
 from alf.hierarchical import evaluate_all_policies_hierarchical
 from alf.hierarchical import HierarchicalAgent
+from alf.multitask import MultitaskGenerativeModel
+from alf.multitask import CompositionalModel
+from alf.multitask import build_compositional_battery
+from alf.multitask import build_simple_task_pair
+from alf.multitask import multifactor_sequential_efe
+from alf.multitask import evaluate_all_policies_multifactor
+from alf.multitask import YANG_TASK_DEFINITIONS
+from alf.multitask_agent import MultitaskAgent
+
+# Subpackages (imported as namespaces)
+from alf import hgf
+from alf import ddm
+from alf import normative
+from alf import metacognition as metacognition_module
+
+# Key exports from new modules
+from alf.hgf import (
+    BinaryHGFParams,
+    ContinuousHGFParams,
+    binary_hgf,
+    continuous_hgf,
+)
+from alf.ddm import (
+    DDMParams,
+    wiener_log_density,
+    simulate_ddm,
+)
+from alf.metacognition import (
+    MetaDResult,
+    fit_meta_d_mle,
+    m_ratio_to_gamma,
+)
+from alf.normative import (
+    normative_model,
+    normative_model_vmap,
+)
 
 __version__ = "0.1.0"
 
@@ -85,10 +137,48 @@ __all__ = [
     "encode",
     "predict_transition",
     "extract_A_matrix",
+    "DecoderGenerativeModel",
+    "DecoderLearningResult",
+    "init_decoder",
+    "decode",
+    "decoder_log_likelihood",
+    "decoder_analytic_nll",
+    "learn_decoder_model",
+    "init_gaussian_decoder",
+    "gaussian_decode",
+    "gaussian_log_likelihood",
     "HierarchicalLevel",
     "HierarchicalGenerativeModel",
     "hierarchical_infer",
     "hierarchical_efe",
     "evaluate_all_policies_hierarchical",
     "HierarchicalAgent",
+    "MultitaskGenerativeModel",
+    "CompositionalModel",
+    "build_compositional_battery",
+    "build_simple_task_pair",
+    "multifactor_sequential_efe",
+    "evaluate_all_policies_multifactor",
+    "YANG_TASK_DEFINITIONS",
+    "MultitaskAgent",
+    # HGF
+    "hgf",
+    "BinaryHGFParams",
+    "ContinuousHGFParams",
+    "binary_hgf",
+    "continuous_hgf",
+    # DDM
+    "ddm",
+    "DDMParams",
+    "wiener_log_density",
+    "simulate_ddm",
+    # Metacognition
+    "metacognition_module",
+    "MetaDResult",
+    "fit_meta_d_mle",
+    "m_ratio_to_gamma",
+    # Normative
+    "normative",
+    "normative_model",
+    "normative_model_vmap",
 ]
