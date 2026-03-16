@@ -16,6 +16,7 @@ Active Inference connection: DDM parameters map directly onto AIF quantities:
 Modules:
     wiener: Navarro-Fuss first-passage time density in pure JAX.
     bridge: Map DDM parameters to/from Active Inference EFE.
+    fitting: MLE, Bayesian, and hierarchical Bayesian DDM fitting.
 
 References:
     Ratcliff (1978). A theory of memory retrieval. Psychological Review.
@@ -38,6 +39,15 @@ from alf.ddm.bridge import (
     efe_to_ddm,
     ddm_to_policy_probs,
 )
+from alf.ddm.fitting import (
+    DDMFitResult,
+    DDMRecoveryResult,
+    fit_ddm_mle,
+    fit_ddm_bayesian,
+    fit_ddm_hierarchical,
+    ddm_posterior_predictive,
+    ddm_recovery_check,
+)
 
 __all__ = [
     # Wiener density
@@ -51,4 +61,12 @@ __all__ = [
     # Bridge
     "efe_to_ddm",
     "ddm_to_policy_probs",
+    # Fitting
+    "DDMFitResult",
+    "DDMRecoveryResult",
+    "fit_ddm_mle",
+    "fit_ddm_bayesian",
+    "fit_ddm_hierarchical",
+    "ddm_posterior_predictive",
+    "ddm_recovery_check",
 ]

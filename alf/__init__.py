@@ -107,6 +107,9 @@ from alf.metacognition import (
     MetaDResult,
     fit_meta_d_mle,
     m_ratio_to_gamma,
+    EFEMonitor,
+    MetacognitiveAgent,
+    PopulationMetacognition,
 )
 from alf.normative import (
     normative_model,
@@ -177,6 +180,9 @@ __all__ = [
     "MetaDResult",
     "fit_meta_d_mle",
     "m_ratio_to_gamma",
+    "EFEMonitor",
+    "MetacognitiveAgent",
+    "PopulationMetacognition",
     # Normative
     "normative",
     "normative_model",

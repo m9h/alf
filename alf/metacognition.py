@@ -1,4 +1,4 @@
-"""Metacognitive modeling: meta-d' and precision calibration.
+"""Metacognitive modeling: meta-d', precision calibration, and online monitoring.
 
 Implements the meta-d' framework (Maniscalco & Lau, 2012; Fleming, 2017) for
 measuring metacognitive efficiency, and bridges it to active inference by
@@ -17,6 +17,13 @@ m-ratio < 1 systematically under- or over-estimates its belief precision gamma.
 This module provides both standalone metacognitive analysis and a bridge to
 parameterize alf agents' precision from empirical metacognitive data.
 
+Phase 2-3 extensions:
+    - EFEMonitor: Online tracking of EFE prediction accuracy and calibration.
+    - MetacognitiveAgent: Wraps AnalyticAgent with real-time self-monitoring,
+      adjusting gamma based on confidence-accuracy calibration.
+    - PopulationMetacognition: Aggregate metacognitive statistics across a
+      population of MetacognitiveAgents (for multi-agent simulations).
+
 Both NumPy (analytical) and NumPyro (hierarchical Bayesian) implementations
 are provided. The NumPyro model follows Fleming (2017) and metadPy.
 
@@ -27,13 +34,20 @@ References:
     Fleming (2017). HMeta-d: hierarchical Bayesian estimation of
         metacognitive efficiency from confidence ratings. Neuroscience
         of Consciousness.
+    Hesp et al. (2021). Deeply felt affect: The emergence of valence in
+        deep active inference. Neural Computation.
+    Smith et al. (2022). A Step-by-Step Tutorial on Active Inference.
+        Journal of Mathematical Psychology.
 """
 
-from typing import NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import jax
 import jax.numpy as jnp
 import numpy as np
+
+from alf.agent import AnalyticAgent
+from alf.generative_model import GenerativeModel
 
 
 # ---------------------------------------------------------------------------
@@ -443,3 +457,462 @@ def update_gamma_from_confidence(
     new_gamma = gamma + gamma_delta
 
     return float(np.clip(new_gamma, min_gamma, max_gamma))
+
+
+# ---------------------------------------------------------------------------
+# EFE Monitor: online tracking of prediction accuracy and calibration
+# ---------------------------------------------------------------------------
+
+class EFERecord(NamedTuple):
+    """A single record of an EFE prediction paired with its outcome.
+
+    Attributes:
+        predicted_efe: The EFE value predicted by the agent for the chosen
+            policy (lower = agent expected a better outcome).
+        confidence: Agent's confidence in its chosen policy (max policy
+            probability, range [0, 1]).
+        outcome_valence: Actual outcome quality (positive = good, negative
+            = bad). For binary accuracy, use 1.0 (correct) or 0.0 (incorrect).
+    """
+    predicted_efe: float
+    confidence: float
+    outcome_valence: float
+
+
+class EFEMonitor:
+    """Online monitor for EFE prediction accuracy and calibration.
+
+    Tracks a running history of the agent's EFE predictions alongside
+    actual outcomes, computing calibration error and an online estimate
+    of metacognitive efficiency (m-ratio).
+
+    The monitor uses exponential moving averages (EMA) for smooth online
+    estimation and maintains a sliding window for recent-trial statistics.
+
+    Args:
+        decay: Exponential moving average decay factor. Values closer to
+            1.0 give more weight to recent trials. Default 0.95.
+        window_size: Number of recent trials to keep for windowed
+            statistics. Default 50.
+    """
+
+    def __init__(
+        self,
+        decay: float = 0.95,
+        window_size: int = 50,
+    ):
+        self.decay = decay
+        self.window_size = window_size
+
+        # Full history
+        self.records: list[EFERecord] = []
+
+        # Exponential moving averages
+        self._ema_confidence: float = 0.5
+        self._ema_accuracy: float = 0.5
+        self._ema_squared_error: float = 0.0
+        self._n_records: int = 0
+
+    def record(
+        self,
+        predicted_efe: float,
+        confidence: float,
+        outcome_valence: float,
+    ) -> None:
+        """Record one trial of EFE prediction versus actual outcome.
+
+        Args:
+            predicted_efe: EFE value for the chosen policy.
+            confidence: Agent's confidence (max policy probability).
+            outcome_valence: Actual outcome (1.0 = correct/good,
+                0.0 = incorrect/bad, or continuous).
+        """
+        rec = EFERecord(
+            predicted_efe=float(predicted_efe),
+            confidence=float(confidence),
+            outcome_valence=float(outcome_valence),
+        )
+        self.records.append(rec)
+        self._n_records += 1
+
+        # Update exponential moving averages
+        alpha = 1.0 - self.decay
+        self._ema_confidence = (
+            self.decay * self._ema_confidence + alpha * rec.confidence
+        )
+        accuracy = 1.0 if rec.outcome_valence > 0.0 else 0.0
+        self._ema_accuracy = (
+            self.decay * self._ema_accuracy + alpha * accuracy
+        )
+        sq_err = (rec.confidence - accuracy) ** 2
+        self._ema_squared_error = (
+            self.decay * self._ema_squared_error + alpha * sq_err
+        )
+
+    def get_calibration(self) -> float:
+        """Compute calibration error from recent trials.
+
+        Calibration error is the root-mean-square difference between
+        predicted confidence and actual accuracy over the recent window.
+        A perfectly calibrated agent has calibration error of 0.
+
+        Returns:
+            Calibration error (RMSE of confidence - accuracy).
+            Returns 0.0 if no records exist.
+        """
+        if not self.records:
+            return 0.0
+
+        window = self.records[-self.window_size:]
+        eps = 1e-16
+
+        confidences = np.array([r.confidence for r in window])
+        accuracies = np.array([
+            1.0 if r.outcome_valence > 0.0 else 0.0 for r in window
+        ])
+
+        mse = np.mean((confidences - accuracies) ** 2)
+        return float(np.sqrt(mse + eps))
+
+    def get_online_m_ratio(self) -> float:
+        """Estimate metacognitive efficiency from online statistics.
+
+        Computes an online approximation of the m-ratio using the
+        relationship between confidence discrimination and accuracy.
+        Uses the EMA statistics for a smooth estimate.
+
+        The approximation maps the ratio of confidence-accuracy
+        covariance to confidence variance, analogous to how m-ratio
+        measures how well Type 2 (confidence) tracks Type 1 (accuracy).
+
+        Returns:
+            Estimated m-ratio (1.0 = perfect metacognition).
+            Returns 1.0 if insufficient data.
+        """
+        if self._n_records < 2:
+            return 1.0
+
+        window = self.records[-self.window_size:]
+        eps = 1e-16
+
+        confidences = np.array([r.confidence for r in window])
+        accuracies = np.array([
+            1.0 if r.outcome_valence > 0.0 else 0.0 for r in window
+        ])
+
+        # Variance of confidence
+        conf_var = np.var(confidences)
+        if conf_var < eps:
+            return 1.0
+
+        # Covariance between confidence and accuracy
+        cov = np.mean(
+            (confidences - confidences.mean())
+            * (accuracies - accuracies.mean())
+        )
+
+        # m-ratio approximation: how well confidence tracks accuracy
+        # Positive covariance = good metacognition (m-ratio ~ 1)
+        # Zero/negative covariance = poor metacognition (m-ratio ~ 0)
+        m_ratio = float(np.clip(cov / conf_var, 0.0, 2.0))
+
+        return m_ratio
+
+    def get_summary(self) -> dict[str, float]:
+        """Return a summary dictionary of monitor statistics.
+
+        Returns:
+            Dict with keys: n_records, ema_confidence, ema_accuracy,
+            calibration_error, online_m_ratio.
+        """
+        return {
+            "n_records": self._n_records,
+            "ema_confidence": self._ema_confidence,
+            "ema_accuracy": self._ema_accuracy,
+            "calibration_error": self.get_calibration(),
+            "online_m_ratio": self.get_online_m_ratio(),
+        }
+
+
+# ---------------------------------------------------------------------------
+# MetacognitiveAgent: wraps AnalyticAgent with self-monitoring
+# ---------------------------------------------------------------------------
+
+class MetacognitiveAgent:
+    """Active Inference agent with metacognitive self-monitoring.
+
+    Wraps an AnalyticAgent (has-a composition) and augments each decision
+    step with metacognitive monitoring. On each step, the agent records
+    its confidence (max policy probability) and on receiving outcome
+    feedback, updates an EFEMonitor and periodically adjusts its policy
+    precision (gamma) based on calibration.
+
+    This is a drop-in replacement for AnalyticAgent: the step() method
+    returns the same (action, info) tuple.
+
+    Args:
+        inner_agent: The AnalyticAgent to wrap. Can also accept a
+            GenerativeModel, in which case an AnalyticAgent is created
+            internally.
+        gamma: Initial policy precision. Only used if inner_agent is a
+            GenerativeModel. Default 4.0.
+        monitor_decay: EMA decay for the EFEMonitor. Default 0.95.
+        monitor_window: Window size for the EFEMonitor. Default 50.
+        gamma_learning_rate: Learning rate for gamma adjustment based
+            on metacognitive feedback. Default 0.1.
+        gamma_update_interval: How often (in trials) to adjust gamma
+            from metacognitive statistics. Default 5.
+        min_gamma: Minimum allowed gamma. Default 0.1.
+        max_gamma: Maximum allowed gamma. Default 16.0.
+        seed: Random seed (only used when inner_agent is a
+            GenerativeModel). Default 42.
+    """
+
+    def __init__(
+        self,
+        inner_agent: AnalyticAgent | GenerativeModel,
+        gamma: float = 4.0,
+        monitor_decay: float = 0.95,
+        monitor_window: int = 50,
+        gamma_learning_rate: float = 0.1,
+        gamma_update_interval: int = 5,
+        min_gamma: float = 0.1,
+        max_gamma: float = 16.0,
+        seed: int = 42,
+    ):
+        if isinstance(inner_agent, GenerativeModel):
+            self.agent = AnalyticAgent(inner_agent, gamma=gamma, seed=seed)
+        else:
+            self.agent = inner_agent
+
+        self.monitor = EFEMonitor(
+            decay=monitor_decay,
+            window_size=monitor_window,
+        )
+        self.gamma_learning_rate = gamma_learning_rate
+        self.gamma_update_interval = gamma_update_interval
+        self.min_gamma = min_gamma
+        self.max_gamma = max_gamma
+
+        # History tracking
+        self.confidence_history: list[float] = []
+        self.accuracy_history: list[float] = []
+        self.gamma_history: list[float] = [self.agent.gamma]
+        self._trial_count: int = 0
+        self._last_confidence: float = 0.5
+        self._last_efe: float = 0.0
+
+    # -- Properties that proxy to the inner agent --------------------------
+
+    @property
+    def gm(self) -> GenerativeModel:
+        """The inner agent's generative model."""
+        return self.agent.gm
+
+    @property
+    def gamma(self) -> float:
+        """Current policy precision."""
+        return self.agent.gamma
+
+    @gamma.setter
+    def gamma(self, value: float) -> None:
+        self.agent.gamma = value
+
+    @property
+    def beliefs(self) -> list[np.ndarray]:
+        """Current beliefs over hidden states."""
+        return self.agent.beliefs
+
+    @property
+    def action_history(self) -> list[int]:
+        """History of actions taken by the inner agent."""
+        return self.agent.action_history
+
+    # -- Core interface (drop-in for AnalyticAgent) ------------------------
+
+    def step(
+        self,
+        observation: list[int],
+    ) -> tuple[int, dict[str, Any]]:
+        """Perform one step: delegate to inner agent + metacognitive monitoring.
+
+        1. Delegates to inner agent's step() for belief update, EFE
+           evaluation, and action selection.
+        2. Extracts confidence (max policy probability) and EFE of the
+           selected policy.
+        3. Stores metacognitive statistics for later learn() call.
+
+        Args:
+            observation: List of observation indices, one per modality.
+
+        Returns:
+            Tuple of (action_index, info_dict). The info_dict includes all
+            keys from the inner agent plus 'metacognitive_confidence'.
+        """
+        action, info = self.agent.step(observation)
+
+        # Extract metacognitive signals
+        policy_probs = info["policy_probs"]
+        self._last_confidence = float(np.max(policy_probs))
+        selected_idx = info["selected_policy"]
+        self._last_efe = float(info["G"][selected_idx])
+
+        self.confidence_history.append(self._last_confidence)
+
+        info["metacognitive_confidence"] = self._last_confidence
+
+        return action, info
+
+    def learn(self, outcome_valence: float) -> None:
+        """Update habits, metacognitive monitor, and optionally gamma.
+
+        1. Delegates to inner agent's learn() for habit updating.
+        2. Records the trial in the EFEMonitor.
+        3. Periodically adjusts gamma based on calibration.
+
+        Args:
+            outcome_valence: How good the outcome was. Positive values
+                indicate correct/rewarding outcomes, negative values
+                indicate incorrect/punishing outcomes.
+        """
+        # 1. Inner agent habit learning
+        self.agent.learn(outcome_valence)
+
+        # 2. Record in monitor
+        accuracy = 1.0 if outcome_valence > 0.0 else 0.0
+        self.monitor.record(
+            predicted_efe=self._last_efe,
+            confidence=self._last_confidence,
+            outcome_valence=outcome_valence,
+        )
+        self.accuracy_history.append(accuracy)
+        self._trial_count += 1
+
+        # 3. Periodic gamma adjustment from metacognitive feedback
+        if self._trial_count % self.gamma_update_interval == 0:
+            self._adjust_gamma()
+
+    def _adjust_gamma(self) -> None:
+        """Adjust gamma based on metacognitive calibration.
+
+        Uses update_gamma_from_confidence with EMA-smoothed confidence
+        and accuracy to avoid noisy single-trial updates.
+        """
+        new_gamma = update_gamma_from_confidence(
+            gamma=self.agent.gamma,
+            predicted_confidence=self.monitor._ema_confidence,
+            actual_accuracy=self.monitor._ema_accuracy,
+            learning_rate=self.gamma_learning_rate,
+            min_gamma=self.min_gamma,
+            max_gamma=self.max_gamma,
+        )
+        self.agent.gamma = new_gamma
+        self.gamma_history.append(new_gamma)
+
+    def reset(self) -> None:
+        """Reset the inner agent's beliefs (keeps learned habits and history)."""
+        self.agent.reset()
+
+    def get_metacognitive_summary(self) -> dict[str, Any]:
+        """Return a comprehensive summary of metacognitive state.
+
+        Returns:
+            Dict with keys: m_ratio, calibration_error, current_gamma,
+            gamma_history, mean_confidence, mean_accuracy,
+            confidence_accuracy_gap, n_trials, monitor_summary.
+        """
+        eps = 1e-16
+        mean_conf = (
+            float(np.mean(self.confidence_history))
+            if self.confidence_history else 0.5
+        )
+        mean_acc = (
+            float(np.mean(self.accuracy_history))
+            if self.accuracy_history else 0.5
+        )
+
+        return {
+            "m_ratio": self.monitor.get_online_m_ratio(),
+            "calibration_error": self.monitor.get_calibration(),
+            "current_gamma": self.agent.gamma,
+            "gamma_history": list(self.gamma_history),
+            "mean_confidence": mean_conf,
+            "mean_accuracy": mean_acc,
+            "confidence_accuracy_gap": mean_conf - mean_acc,
+            "n_trials": self._trial_count,
+            "monitor_summary": self.monitor.get_summary(),
+        }
+
+    def get_state_summary(self) -> dict[str, Any]:
+        """Return combined inner-agent and metacognitive summary."""
+        summary = self.agent.get_state_summary()
+        summary["metacognition"] = self.get_metacognitive_summary()
+        return summary
+
+
+# ---------------------------------------------------------------------------
+# PopulationMetacognition: aggregate stats for multi-agent simulations
+# ---------------------------------------------------------------------------
+
+class PopulationMetacognition:
+    """Aggregate metacognitive statistics across a population of agents.
+
+    Useful for Concordia/SustainHub multi-agent simulations where you
+    want to track the distribution of metacognitive efficiency across
+    heterogeneous agents.
+
+    Args:
+        agents: List of MetacognitiveAgent instances.
+    """
+
+    def __init__(self, agents: list[MetacognitiveAgent]):
+        self.agents = agents
+
+    def get_population_m_ratios(self) -> np.ndarray:
+        """Get m-ratio for each agent in the population.
+
+        Returns:
+            Array of m-ratios, shape (n_agents,).
+        """
+        return np.array([
+            a.monitor.get_online_m_ratio() for a in self.agents
+        ])
+
+    def get_heterogeneity_stats(self) -> dict[str, float]:
+        """Compute summary statistics of metacognitive heterogeneity.
+
+        Returns:
+            Dict with keys: mean_m_ratio, std_m_ratio, min_m_ratio,
+            max_m_ratio, range_m_ratio, mean_gamma, std_gamma,
+            mean_calibration_error.
+        """
+        m_ratios = self.get_population_m_ratios()
+        gammas = np.array([a.gamma for a in self.agents])
+        calibrations = np.array([
+            a.monitor.get_calibration() for a in self.agents
+        ])
+
+        return {
+            "mean_m_ratio": float(np.mean(m_ratios)),
+            "std_m_ratio": float(np.std(m_ratios)),
+            "min_m_ratio": float(np.min(m_ratios)),
+            "max_m_ratio": float(np.max(m_ratios)),
+            "range_m_ratio": float(np.ptp(m_ratios)),
+            "mean_gamma": float(np.mean(gammas)),
+            "std_gamma": float(np.std(gammas)),
+            "mean_calibration_error": float(np.mean(calibrations)),
+        }
+
+    def get_population_summary(self) -> dict[str, Any]:
+        """Get full per-agent metacognitive summaries plus population stats.
+
+        Returns:
+            Dict with keys: agent_summaries (list of dicts),
+            heterogeneity (dict of population-level stats).
+        """
+        return {
+            "agent_summaries": [
+                a.get_metacognitive_summary() for a in self.agents
+            ],
+            "heterogeneity": self.get_heterogeneity_stats(),
+        }

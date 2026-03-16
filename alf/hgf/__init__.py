@@ -11,6 +11,7 @@ statistics (mu, pi) updated via the same jax.lax.scan pattern as alf.learning.
 
 Modules:
     updates: Core HGF update equations (2-level binary, 3-level continuous).
+    graph: Generalized n-level HGF with arbitrary graph topology.
     bridge: Connect HGF perception to alf's discrete action selection.
     learning: Differentiable parameter learning via jax.grad through surprise.
 
@@ -34,6 +35,16 @@ from alf.hgf.updates import (
     continuous_hgf,
     binary_hgf_surprise,
     continuous_hgf_surprise,
+)
+from alf.hgf.graph import (
+    HGFNode,
+    HGFGraph,
+    build_graph,
+    graph_hgf_update,
+    graph_hgf,
+    graph_hgf_surprise,
+    make_standard_3level,
+    make_binary_2level,
 )
 from alf.hgf.bridge import (
     discretize_belief,
@@ -61,6 +72,15 @@ __all__ = [
     "continuous_hgf",
     "binary_hgf_surprise",
     "continuous_hgf_surprise",
+    # Graph (generalized n-level)
+    "HGFNode",
+    "HGFGraph",
+    "build_graph",
+    "graph_hgf_update",
+    "graph_hgf",
+    "graph_hgf_surprise",
+    "make_standard_3level",
+    "make_binary_2level",
     # Bridge
     "discretize_belief",
     "hgf_to_categorical",
