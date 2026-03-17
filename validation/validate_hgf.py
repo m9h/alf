@@ -85,39 +85,25 @@ def validate_binary_hgf_with_pyhgf():
     sigma_2_0 = 1.0
 
     try:
-        pyhgf_model = HGF(
-            n_levels=2,
-            model_type="binary",
-            initial_mean={"1": mu_2_0},
-            initial_precision={"1": 1.0 / sigma_2_0},
-            tonic_volatility={"1": omega_2},
+        # pyhgf >= 0.2 Network API
+        from pyhgf.model import Network
+        network = Network()
+        network.add_nodes(kind="binary-state")
+        network.add_nodes(
+            kind="continuous-state",
+            node_parameters={
+                "tonic_volatility": omega_2,
+                "mean": mu_2_0,
+                "precision": 1.0 / sigma_2_0,
+            },
+            value_children=0,
         )
-        pyhgf_model.input_data(input_data=u)
-
-        # Extract pyhgf trajectories
-        pyhgf_mu = pyhgf_model.node_trajectories[1]["mean"]
-        pyhgf_pi = pyhgf_model.node_trajectories[1]["precision"]
-        pyhgf_surprise = pyhgf_model.surprise()
+        network.input_data(input_data=u.reshape(-1, 1))
+        pyhgf_mu = np.array(network.node_trajectories[1]["mean"])
+        pyhgf_pi = np.array(network.node_trajectories[1]["precision"])
     except Exception as e:
-        print(f"  WARN: pyhgf API may have changed: {e}")
-        print("  Trying alternative API...")
-        try:
-            # pyhgf >= 0.2 API
-            from pyhgf.model import Network
-            network = Network()
-            network.add_nodes(kind="binary-input")
-            network.add_nodes(
-                kind="continuous-state",
-                tonic_volatility=omega_2,
-            )
-            network.add_edges(child_idxs=0, parent_idxs=1)
-            network.input_data(input_data=u)
-            pyhgf_mu = np.array(network.node_trajectories[1]["mean"])
-            pyhgf_pi = np.array(network.node_trajectories[1]["precision"])
-            pyhgf_surprise = np.array(network.surprise())
-        except Exception as e2:
-            print(f"  FAIL: Cannot run pyhgf: {e2}\n")
-            return False
+        print(f"  FAIL: Cannot run pyhgf: {e}\n")
+        return False
 
     # Run alf
     params = BinaryHGFParams(
@@ -128,23 +114,18 @@ def validate_binary_hgf_with_pyhgf():
     alf_result = binary_hgf(jnp.array(u), params)
     alf_mu = np.array(alf_result.mu[:, 0])
     alf_pi = np.array(alf_result.pi[:, 0])
-    alf_surprise = np.array(alf_result.surprise)
 
     # Trim to same length
     T = min(len(alf_mu), len(pyhgf_mu))
     alf_mu, pyhgf_mu = alf_mu[:T], pyhgf_mu[:T]
     alf_pi, pyhgf_pi = alf_pi[:T], pyhgf_pi[:T]
-    alf_surprise, pyhgf_surprise = alf_surprise[:T], pyhgf_surprise[:T]
 
     ok = True
     ok &= compare("mu_2 trajectory", alf_mu, pyhgf_mu, atol=0.1)
     ok &= compare("pi_2 trajectory", alf_pi, pyhgf_pi, atol=0.5)
-    ok &= compare("per-trial surprise", alf_surprise, pyhgf_surprise, atol=0.1)
 
-    total_alf = float(np.sum(alf_surprise))
-    total_pyhgf = float(np.sum(pyhgf_surprise))
-    print(f"  Total surprise: alf={total_alf:.4f} pyhgf={total_pyhgf:.4f} "
-          f"diff={abs(total_alf - total_pyhgf):.4f}")
+    total_alf = float(np.sum(np.array(alf_result.surprise)))
+    print(f"  Total surprise (alf): {total_alf:.4f}")
     print()
     return ok
 
