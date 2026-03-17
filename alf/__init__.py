@@ -70,6 +70,12 @@ from alf.deep_aif import learn_decoder_model
 from alf.deep_aif import init_gaussian_decoder
 from alf.deep_aif import gaussian_decode
 from alf.deep_aif import gaussian_log_likelihood
+from alf.jax_core import softmax
+from alf.jax_core import safe_log
+from alf.jax_core import safe_normalize
+from alf.jax_core import safe_divide
+from alf.jax_core import entropy
+from alf.jax_core import log_normalize
 from alf.hierarchical import HierarchicalLevel
 from alf.hierarchical import HierarchicalGenerativeModel
 from alf.hierarchical import hierarchical_infer
@@ -150,6 +156,13 @@ __all__ = [
     "init_gaussian_decoder",
     "gaussian_decode",
     "gaussian_log_likelihood",
+    # JAX core primitives
+    "softmax",
+    "safe_log",
+    "safe_normalize",
+    "safe_divide",
+    "entropy",
+    "log_normalize",
     "HierarchicalLevel",
     "HierarchicalGenerativeModel",
     "hierarchical_infer",

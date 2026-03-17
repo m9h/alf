@@ -18,13 +18,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+from alf.jax_core import entropy as _entropy, safe_log, safe_normalize, softmax
 from alf.sequential_efe import jax_evaluate_all_policies_sequential
-
-
-def jax_softmax(x: jnp.ndarray) -> jnp.ndarray:
-    """Numerically stable softmax in JAX."""
-    e_x = jnp.exp(x - jnp.max(x))
-    return e_x / e_x.sum()
 
 
 def jax_select_action(
@@ -46,9 +41,8 @@ def jax_select_action(
     Returns:
         Tuple of (selected_policy_index, policy_probabilities).
     """
-    log_E = jnp.log(jnp.clip(E, 1e-16))
-    log_posterior = -gamma * G + log_E
-    policy_probs = jax_softmax(log_posterior)
+    log_posterior = -gamma * G + safe_log(E)
+    policy_probs = softmax(log_posterior)
     selected = jax.random.categorical(key, jnp.log(policy_probs))
     return selected, policy_probs
 
@@ -110,13 +104,11 @@ def jax_compute_efe_analytic(
     predicted_states = B_action @ beliefs
 
     predicted_obs = A @ predicted_states
-    predicted_obs = jnp.clip(predicted_obs, 1e-16)
-    predicted_obs = predicted_obs / predicted_obs.sum()
+    predicted_obs = safe_normalize(jnp.maximum(predicted_obs, 1e-16))
 
     pragmatic = jnp.sum(predicted_obs * C)
 
-    log_A = jnp.log(jnp.clip(A, 1e-16))
-    entropy_per_state = -jnp.sum(A * log_A, axis=0)
+    entropy_per_state = _entropy(A, axis=0)
     epistemic = jnp.sum(predicted_states * entropy_per_state)
 
     return -pragmatic - epistemic

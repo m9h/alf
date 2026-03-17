@@ -36,6 +36,14 @@ try:
 except ImportError:
     JAX_AVAILABLE = False
 
+if JAX_AVAILABLE:
+    from alf.jax_core import (
+        entropy as _entropy,
+        safe_log,
+        safe_normalize,
+        softmax,
+    )
+
 
 # ---------------------------------------------------------------------------
 # NumPy implementation
@@ -200,21 +208,15 @@ if JAX_AVAILABLE:
         Returns:
             Scalar EFE value.
         """
-        log_A = jnp.log(jnp.clip(A, 1e-16))
-        entropy_per_state = -jnp.sum(A * log_A, axis=0)
+        entropy_per_state = _entropy(A, axis=0)
 
-        q_s = jnp.clip(D, 1e-16)
-        q_s = q_s / q_s.sum()
+        q_s = safe_normalize(jnp.maximum(D, 1e-16))
 
         def step_fn(q_s, action):
             B_a = B[:, :, action]
-            q_s_next = B_a @ q_s
-            q_s_next = jnp.clip(q_s_next, 1e-16)
-            q_s_next = q_s_next / q_s_next.sum()
+            q_s_next = safe_normalize(jnp.maximum(B_a @ q_s, 1e-16))
 
-            q_o = A @ q_s_next
-            q_o = jnp.clip(q_o, 1e-16)
-            q_o = q_o / q_o.sum()
+            q_o = safe_normalize(jnp.maximum(A @ q_s_next, 1e-16))
 
             pragmatic = jnp.sum(q_o * C)
             epistemic = jnp.sum(q_s_next * entropy_per_state)
@@ -279,11 +281,8 @@ if JAX_AVAILABLE:
         """
         G = jax_evaluate_all_policies_sequential(A, B, C, D, policies)
 
-        log_E = jnp.log(jnp.clip(E, 1e-16))
-        log_posterior = -gamma * G + log_E
-        log_posterior = log_posterior - jnp.max(log_posterior)
-        policy_probs = jnp.exp(log_posterior)
-        policy_probs = policy_probs / policy_probs.sum()
+        log_posterior = -gamma * G + safe_log(E)
+        policy_probs = softmax(log_posterior)
 
         selected_idx = jax.random.categorical(key, jnp.log(policy_probs))
 

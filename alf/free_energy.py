@@ -35,6 +35,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from alf.generative_model import GenerativeModel
+from alf.jax_core import entropy as _entropy, safe_log, safe_normalize
 
 
 # ---------------------------------------------------------------------------
@@ -273,10 +274,9 @@ def jax_variational_free_energy(
     Returns:
         F: Variational free energy (scalar).
     """
-    eps = 1e-16
-    log_q = jnp.log(jnp.clip(q_s, eps))
-    log_likelihood = jnp.log(jnp.clip(A[observation, :], eps))
-    log_prior = jnp.log(jnp.clip(prior_s, eps))
+    log_q = safe_log(q_s)
+    log_likelihood = safe_log(A[observation, :])
+    log_prior = safe_log(prior_s)
 
     F = jnp.sum(q_s * (log_q - log_likelihood - log_prior))
     return F
@@ -304,25 +304,18 @@ def jax_expected_free_energy_decomposed(
     Returns:
         Tuple of (G_total, pragmatic, epistemic), each a scalar.
     """
-    eps = 1e-16
-
     # Predicted next state
     B_a = B[:, :, action]
-    predicted_states = B_a @ beliefs
-    predicted_states = jnp.clip(predicted_states, eps)
-    predicted_states = predicted_states / predicted_states.sum()
+    predicted_states = safe_normalize(jnp.maximum(B_a @ beliefs, 1e-16))
 
     # Predicted observations
-    predicted_obs = A @ predicted_states
-    predicted_obs = jnp.clip(predicted_obs, eps)
-    predicted_obs = predicted_obs / predicted_obs.sum()
+    predicted_obs = safe_normalize(jnp.maximum(A @ predicted_states, 1e-16))
 
     # Pragmatic value
     pragmatic = jnp.sum(predicted_obs * C)
 
     # Epistemic value
-    log_A = jnp.log(jnp.clip(A, eps))
-    entropy_per_state = -jnp.sum(A * log_A, axis=0)
+    entropy_per_state = _entropy(A, axis=0)
     epistemic = -jnp.sum(predicted_states * entropy_per_state)
 
     G_total = -pragmatic - epistemic
@@ -357,8 +350,6 @@ def jax_generalized_free_energy(
     Returns:
         F_gen: Generalized free energy (scalar).
     """
-    eps = 1e-16
-
     # Past: VFE
     F_vfe = jax_variational_free_energy(q_s, A, prior_s, observation)
 
@@ -367,9 +358,7 @@ def jax_generalized_free_energy(
         G, _, _ = jax_expected_free_energy_decomposed(A, B, C, beliefs, action)
 
         B_a = B[:, :, action]
-        next_beliefs = B_a @ beliefs
-        next_beliefs = jnp.clip(next_beliefs, eps)
-        next_beliefs = next_beliefs / next_beliefs.sum()
+        next_beliefs = safe_normalize(jnp.maximum(B_a @ beliefs, 1e-16))
 
         return next_beliefs, G
 
