@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  MPLBACKEND: Agg
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install Python
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync --group dev 2>/dev/null || uv pip install -e ".[dev]"
+      - name: Ruff check
+        run: uv run ruff check src/ tests/
+      - name: Ruff format check
+        run: uv run ruff format --check src/ tests/
+      - name: No-mock check
+        run: |
+          if grep -rn "unittest\.mock\|MagicMock\|from mock import\|@patch" tests/ --include="*.py" | grep -v "^#"; then
+            echo "::error::unittest.mock usage detected in tests"
+            exit 1
+          fi
+      - name: Pytest
+        run: uv run pytest tests/ -v --tb=short

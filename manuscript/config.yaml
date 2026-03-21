@@ -1,0 +1,32 @@
+project:
+  name: alf-aif
+  title: "Active inference/Learning Framework \u2014 standalone JAX-native active\
+    \ inference"
+  short_title: alf-aif
+authors:
+- name: Morgan Hough
+  affiliation: ''
+  email: ''
+  orcid: ''
+date: '2026-03-20'
+version: 0.1.0
+abstract_source: auto
+keywords:
+- active-inference
+- free-energy-principle
+- jax
+- bayesian
+- POMDP
+exclude_drafts: false
+bibliography: references.bib
+beamer_theme: metropolis
+scan_paths:
+- .
+exclude_paths:
+- .git
+- .venv
+- node_modules
+- __pycache__
+- manuscript/output
+- .github
+output_dir: manuscript/output

@@ -1,3 +1,13 @@
+---
+category: infrastructure
+section: appendix
+weight: 30
+title: "ALF Module Architecture and Conventions"
+status: draft
+slide_summary: "ALF is a JAX-native active inference library with 11 modules spanning generative models, batch agents, hierarchical inference, and differentiable learning, all following consistent matrix conventions (A, B, C, D) with EFE minimization."
+tags: [alf, active-inference, jax, architecture, module-map, conventions]
+---
+
 # ALF — Active inference/Learning Framework
 
 ## Quick start
