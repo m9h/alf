@@ -239,7 +239,6 @@ def test_jax_jit_works():
 
 def test_jax_vmap_over_policies():
     """Test that JAX version can be vmapped over policies."""
-    import jax
     import jax.numpy as jnp
     from alf.sequential_efe import (
         jax_sequential_efe,

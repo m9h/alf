@@ -10,7 +10,6 @@ HDDM reference parameters (approximate, from Wiecki et al. 2013):
 Data format: response (0=lower, 1=upper), rt (seconds), difficulty (easy/hard)
 """
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -22,7 +21,6 @@ from alf.ddm.wiener import (
     wiener_log_density_batch,
     ddm_nll,
     simulate_ddm,
-    DDMParams,
 )
 
 DATA_DIR = Path(__file__).parent / "data" / "ddm"

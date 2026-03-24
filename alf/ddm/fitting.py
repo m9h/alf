@@ -38,7 +38,6 @@ import numpy as np
 
 from alf.ddm.wiener import (
     DDMParams,
-    DDMResult,
     wiener_log_density_batch,
     ddm_nll,
     simulate_ddm,

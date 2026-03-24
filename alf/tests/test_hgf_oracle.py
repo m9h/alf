@@ -10,7 +10,6 @@ The reference data was generated with known parameters:
                 theta=0.01, pi_u=100.0
 """
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -23,7 +22,6 @@ from alf.hgf.updates import (
     binary_hgf,
     continuous_hgf,
     binary_hgf_surprise,
-    continuous_hgf_surprise,
 )
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -31,7 +29,7 @@ REF_FILE = DATA_DIR / "hgf_reference.npz"
 HAS_REFERENCE = REF_FILE.exists()
 
 try:
-    import pyhgf
+    import pyhgf  # noqa: F401
     HAS_PYHGF = True
 except ImportError:
     HAS_PYHGF = False

@@ -8,10 +8,9 @@ remain in pgmax/aif).
 import numpy as np
 from alf.benchmarks.t_maze import (
     build_t_maze_model, TMazeEnv, run_t_maze,
-    NUM_STATES, NUM_OBS, NUM_ACTIONS, ACTION_NAMES,
-    ACT_STAY, ACT_CUE, ACT_LEFT, ACT_RIGHT,
+    NUM_STATES, NUM_OBS, NUM_ACTIONS, ACT_STAY, ACT_CUE, ACT_LEFT, ACT_RIGHT,
     OBS_NULL, OBS_CUE_LEFT, OBS_CUE_RIGHT, OBS_REWARD, OBS_PUNISHMENT,
-    _build_A, _build_B, _build_C, _build_D,
+    _build_A, _build_B, _build_D,
 )
 
 

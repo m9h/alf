@@ -28,7 +28,6 @@ from typing import NamedTuple, Optional
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 
 
 # ---------------------------------------------------------------------------
@@ -427,7 +426,7 @@ def _fit_combat_single_feature(
     Returns:
         Tuple of (grand_mean, gamma_star, delta_star, pooled_std).
     """
-    n_sites = site_indicators.shape[1]
+    site_indicators.shape[1]
 
     # Grand mean
     grand_mean = jnp.mean(y)

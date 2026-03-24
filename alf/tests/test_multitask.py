@@ -26,8 +26,6 @@ from alf.multitask import (
     NUM_OBS_FEEDBACK,
     PHASE_FIXATION,
     PHASE_STIMULUS,
-    PHASE_DELAY,
-    PHASE_RESPONSE,
     build_compositional_battery,
     build_simple_task_pair,
     multifactor_sequential_efe,
@@ -369,7 +367,7 @@ class TestMultitaskAgentSwitching:
 
         # Run task_A and learn
         agent.set_task("task_A")
-        gm_a = mtm.get_model_for_task("task_A")
+        mtm.get_model_for_task("task_A")
         obs = [0]
         agent.step(obs)
         agent.learn(1.0)  # positive outcome -> habit update

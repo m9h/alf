@@ -19,7 +19,6 @@ References:
         for normative modelling of big data. NeuroImage.
 """
 
-from typing import NamedTuple, Optional
 
 import jax
 import jax.numpy as jnp

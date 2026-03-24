@@ -22,21 +22,18 @@ from alf.hgf.updates import (
     ContinuousHGFParams,
     binary_hgf,
     continuous_hgf,
-    binary_hgf_surprise,
 )
-from alf.hgf.bridge import HGFPerceptualAgent, hgf_to_categorical
-from alf.hgf.learning import learn_binary_hgf, binary_hgf_nll
+from alf.hgf.bridge import HGFPerceptualAgent
+from alf.hgf.learning import learn_binary_hgf
 
 from alf.ddm.wiener import (
     DDMParams,
     simulate_ddm,
     ddm_nll,
-    ddm_log_likelihood,
 )
 from alf.ddm.bridge import efe_to_ddm, ddm_to_policy_probs
 
 from alf.metacognition import (
-    compute_sdt_type1,
     compute_type1_from_counts,
     fit_meta_d_mle,
     m_ratio_to_gamma,
@@ -127,7 +124,6 @@ def generate_sdt_data(d_prime=1.5, n_trials=500, n_ratings=4, seed=42):
     Returns nR_S1 and nR_S2 arrays.
     """
     rng = np.random.RandomState(seed)
-    half = n_ratings
 
     # Internal evidence values: S1 ~ N(-d'/2, 1), S2 ~ N(d'/2, 1)
     evidence_s1 = rng.normal(-d_prime / 2.0, 1.0, n_trials)
@@ -196,8 +192,8 @@ def test_hgf_perceptual_agent_binary():
 
     # Surprise should generally decrease as the agent learns the pattern
     surprises = agent.surprise_history
-    first_half = np.mean(surprises[:num_steps // 2])
-    second_half = np.mean(surprises[num_steps // 2:])
+    np.mean(surprises[:num_steps // 2])
+    np.mean(surprises[num_steps // 2:])
     # This is a soft check; the agent should at least not diverge
     assert np.all(np.isfinite(surprises)), "Surprise contains non-finite values"
 
@@ -222,7 +218,7 @@ def test_hgf_perceptual_agent_continuous():
     # The HGF level-1 mean should track the drifting signal
     hgf_mus = [m[0] for m in agent.hgf_mu_history]
     final_mu = hgf_mus[-1]
-    final_signal = obs[-1]
+    obs[-1]
 
     # The mean should be in the same direction as the signal
     assert final_mu > 0.0, (
@@ -317,7 +313,7 @@ def test_ddm_efe_bridge_roundtrip():
     assert 0.0 < float(ddm_params.w) < 1.0, (
         f"Starting point bias should be in (0,1): {ddm_params.w}"
     )
-    assert float(ddm_params.tau) > 0, f"Non-decision time should be positive"
+    assert float(ddm_params.tau) > 0, "Non-decision time should be positive"
 
     # Convert to policy probs
     probs = ddm_to_policy_probs(ddm_params)

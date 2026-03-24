@@ -12,7 +12,6 @@ Hand-computed SDT references:
         c  = -0.5 * (z(0.797) + z(0.302)) ≈ -0.5 * (0.833 + (-0.518)) ≈ -0.158
 """
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -23,7 +22,6 @@ from alf.metacognition import (
     compute_type1_from_counts,
     fit_meta_d_mle,
     m_ratio_to_gamma,
-    update_gamma_from_confidence,
 )
 
 DATA_DIR = Path(__file__).parent / "data" / "metacognition"
@@ -31,7 +29,7 @@ RM_FILE = DATA_DIR / "rm.txt"
 DATA_AVAILABLE = RM_FILE.exists()
 
 try:
-    import metadpy
+    import metadpy  # noqa: F401
     HAS_METADPY = True
 except ImportError:
     HAS_METADPY = False
@@ -159,7 +157,6 @@ def test_meta_d_mle_on_synthetic():
     """Test meta-d' MLE on synthetic data with known properties."""
     # Generate data where metacognition is good (meta-d' ~ d')
     np.random.seed(42)
-    n_ratings = 4
 
     # Create clean SDT data
     nR_S1 = np.array([40.0, 20.0, 10.0, 5.0, 3.0, 7.0, 15.0, 50.0])
@@ -199,7 +196,7 @@ def test_rm_data_loads():
     assert "Confidence" in df.columns, "Missing Confidence column"
     assert "Subject" in df.columns, "Missing Subject column"
     assert len(df) == 4000, f"Expected 4000 rows, got {len(df)}"
-    assert df["Subject"].nunique() == 20, f"Expected 20 subjects"
+    assert df["Subject"].nunique() == 20, "Expected 20 subjects"
 
 
 @pytest.mark.skipif(not DATA_AVAILABLE, reason="rm.txt not downloaded")
@@ -239,9 +236,9 @@ def test_rm_meta_d_mle():
 
     result = fit_meta_d_mle(nR_S1, nR_S2)
 
-    assert np.isfinite(result.d_prime), f"d' not finite"
-    assert np.isfinite(result.meta_d), f"meta-d' not finite"
-    assert np.isfinite(result.m_ratio), f"m-ratio not finite"
+    assert np.isfinite(result.d_prime), "d' not finite"
+    assert np.isfinite(result.meta_d), "meta-d' not finite"
+    assert np.isfinite(result.m_ratio), "m-ratio not finite"
 
     # m-ratio should be in reasonable range
     assert 0.01 < abs(result.m_ratio) < 5.0, (

@@ -40,7 +40,7 @@ References:
         Journal of Mathematical Psychology.
 """
 
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 import jax
 import jax.numpy as jnp
@@ -186,7 +186,7 @@ def _sdt_expected_counts(
         Tuple of (expected_nR_S1, expected_nR_S2).
     """
     n_criteria = len(criteria)
-    n_ratings = (n_criteria + 1) // 2
+    (n_criteria + 1) // 2
 
     # Cumulative probabilities at each criterion
     # For S1 (noise) distribution: N(0, 1) shifted by -d/2 relative to criterion
@@ -225,7 +225,7 @@ def fit_meta_d_mle(
 
     nR_S1 = np.asarray(nR_S1, dtype=np.float64)
     nR_S2 = np.asarray(nR_S2, dtype=np.float64)
-    n_ratings = len(nR_S1) // 2
+    len(nR_S1) // 2
 
     # Type 1 performance
     d_prime, c = compute_type1_from_counts(nR_S1, nR_S2)
@@ -821,7 +821,6 @@ class MetacognitiveAgent:
             gamma_history, mean_confidence, mean_accuracy,
             confidence_accuracy_gap, n_trials, monitor_summary.
         """
-        eps = 1e-16
         mean_conf = (
             float(np.mean(self.confidence_history))
             if self.confidence_history else 0.5

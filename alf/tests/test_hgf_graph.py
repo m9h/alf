@@ -21,9 +21,7 @@ from alf.hgf.updates import (
 )
 from alf.hgf.graph import (
     HGFNode,
-    HGFGraph,
     build_graph,
-    graph_hgf_update,
     graph_hgf,
     graph_hgf_surprise,
     make_standard_3level,

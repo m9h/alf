@@ -10,12 +10,10 @@ Verifies that:
 """
 
 import numpy as np
-import jax
 import jax.numpy as jnp
 import pytest
 
 from alf.normative.combat import (
-    ComBatParams,
     fit_combat,
     apply_combat,
     combat_harmonize,
@@ -26,7 +24,6 @@ from alf.normative.bridge import (
     NormativeAIFResult,
     zscore_to_vfe,
     individual_free_energy,
-    individual_free_energy_vmap,
     deviation_profile_to_beliefs,
     deviation_mask,
     normative_aif_pipeline,
@@ -538,8 +535,8 @@ def test_deviation_mask_symmetry():
     z = jnp.array([2.5, -2.5])
     mask = deviation_mask(z, threshold=2.0)
 
-    assert bool(mask[0]) == True
-    assert bool(mask[1]) == True
+    assert bool(mask[0])
+    assert bool(mask[1])
 
 
 # ---------------------------------------------------------------------------

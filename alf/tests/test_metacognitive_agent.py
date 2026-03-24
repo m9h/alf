@@ -16,18 +16,11 @@ from alf.benchmarks.t_maze import (
     build_t_maze_model,
     TMazeEnv,
     ACT_CUE,
-    ACT_LEFT,
-    ACT_RIGHT,
-    OBS_NULL,
-    OBS_REWARD,
-    OBS_PUNISHMENT,
-    ACTION_NAMES,
 )
 from alf.agent import AnalyticAgent
 from alf.generative_model import GenerativeModel
 from alf.metacognition import (
     EFEMonitor,
-    EFERecord,
     MetacognitiveAgent,
     PopulationMetacognition,
 )
@@ -243,7 +236,6 @@ def test_metacognitive_agent_learns():
         gamma_learning_rate=0.2,
     )
 
-    initial_gamma = agent.gamma
 
     # Run several trials with mixed outcomes
     for i in range(20):
@@ -499,7 +491,6 @@ def test_metacognitive_agent_t_maze():
     3. It achieves reasonable reward rate (>50% with cue usage).
     4. Gamma adjusts in response to performance.
     """
-    from alf.benchmarks.t_maze import build_t_maze_model
 
     gm = build_t_maze_model(cue_reliability=0.9, T=2)
     agent = MetacognitiveAgent(

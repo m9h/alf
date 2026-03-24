@@ -10,7 +10,6 @@ Tests BLR and SHASH warping, verifying:
 """
 
 import numpy as np
-import jax
 import jax.numpy as jnp
 
 from alf.normative.blr import (
