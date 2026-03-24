@@ -90,9 +90,14 @@ NUM_ACTIONS = 3
 
 ACTION_NAMES = ["fixate", "respond_left", "respond_right"]
 OBS_NAMES = [
-    "fixation", "stim_left", "stim_right",
-    "rule_go", "rule_nogo", "rule_anti",
-    "reward", "punishment",
+    "fixation",
+    "stim_left",
+    "stim_right",
+    "rule_go",
+    "rule_nogo",
+    "rule_anti",
+    "reward",
+    "punishment",
 ]
 RULE_NAMES = ["go", "nogo", "anti"]
 
@@ -320,9 +325,7 @@ class GoNoGoEnv:
                 return [OBS_RULE_GO, OBS_RULE_NOGO, OBS_RULE_ANTI][self.rule]
 
         elif self.phase == PHASE_STIM:
-            return (OBS_STIM_LEFT
-                    if self.stim == DIR_LEFT
-                    else OBS_STIM_RIGHT)
+            return OBS_STIM_LEFT if self.stim == DIR_LEFT else OBS_STIM_RIGHT
 
         elif self.phase == PHASE_RESP:
             correct = _correct_response(self.stim, self.rule)
@@ -416,8 +419,8 @@ def run_go_nogo(
     for rule_name in ["go", "nogo", "anti"]:
         rule_trials = [r for r in results if r["rule"] == rule_name]
         if rule_trials:
-            rule_acc[rule_name] = (
-                sum(1 for r in rule_trials if r["correct"]) / len(rule_trials)
+            rule_acc[rule_name] = sum(1 for r in rule_trials if r["correct"]) / len(
+                rule_trials
             )
         else:
             rule_acc[rule_name] = 0.0
@@ -426,7 +429,8 @@ def run_go_nogo(
     nogo_trials = [r for r in results if r["rule"] == "nogo"]
     false_alarm_rate = (
         sum(1 for r in nogo_trials if r["false_alarm"]) / len(nogo_trials)
-        if nogo_trials else 0.0
+        if nogo_trials
+        else 0.0
     )
 
     rewards = [r["reward"] for r in results]

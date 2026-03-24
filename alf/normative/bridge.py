@@ -44,6 +44,7 @@ eps = 1e-16
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 class NormativeAIFResult(NamedTuple):
     """Combined result of normative modeling and active inference bridge.
 
@@ -60,6 +61,7 @@ class NormativeAIFResult(NamedTuple):
         y_pred: Predicted means, shape (n_test, n_features).
         y_std: Predicted standard deviations, shape (n_test, n_features).
     """
+
     z_scores: jnp.ndarray
     vfe: jnp.ndarray
     vfe_total: jnp.ndarray
@@ -72,6 +74,7 @@ class NormativeAIFResult(NamedTuple):
 # ---------------------------------------------------------------------------
 # Core conversions
 # ---------------------------------------------------------------------------
+
 
 def zscore_to_vfe(z_scores: jnp.ndarray) -> jnp.ndarray:
     """Convert normative Z-scores to variational free energy (surprise).
@@ -92,7 +95,7 @@ def zscore_to_vfe(z_scores: jnp.ndarray) -> jnp.ndarray:
         Variational free energy, same shape as z_scores. Units are nats.
     """
     z_scores = jnp.asarray(z_scores)
-    return 0.5 * z_scores ** 2 + 0.5 * jnp.log(2.0 * jnp.pi)
+    return 0.5 * z_scores**2 + 0.5 * jnp.log(2.0 * jnp.pi)
 
 
 def individual_free_energy(
@@ -143,6 +146,7 @@ individual_free_energy_vmap = jax.vmap(
 # ---------------------------------------------------------------------------
 # Deviation profiles -> beliefs
 # ---------------------------------------------------------------------------
+
 
 def deviation_profile_to_beliefs(
     z_scores: jnp.ndarray,
@@ -204,6 +208,7 @@ def deviation_mask(
 # Full pipeline
 # ---------------------------------------------------------------------------
 
+
 def normative_aif_pipeline(
     x_train: np.ndarray,
     Y_train: np.ndarray,
@@ -247,6 +252,7 @@ def normative_aif_pipeline(
     # Step 1: ComBat harmonization (if site labels provided)
     if site_train is not None and site_test is not None:
         from alf.normative.combat import combat_harmonize
+
         Y_train_harm, Y_test_harm = combat_harmonize(
             jnp.array(Y_train_use),
             jnp.array(site_train),
@@ -258,8 +264,12 @@ def normative_aif_pipeline(
 
     # Step 2-3: BLR + Z-scores (vmapped over brain regions)
     z_scores, y_pred, y_std = normative_model_vmap(
-        x_train, Y_train_use, x_test, Y_test_use,
-        n_basis=n_basis, degree=degree,
+        x_train,
+        Y_train_use,
+        x_test,
+        Y_test_use,
+        n_basis=n_basis,
+        degree=degree,
     )
 
     # Step 4: Z-scores -> VFE (the bridge)
@@ -268,9 +278,7 @@ def normative_aif_pipeline(
 
     # Step 5: Deviation profiling
     dev_mask = deviation_mask(z_scores, threshold=z_threshold)
-    belief_vectors = deviation_profile_to_beliefs(
-        z_scores, threshold=z_threshold
-    )
+    belief_vectors = deviation_profile_to_beliefs(z_scores, threshold=z_threshold)
 
     return NormativeAIFResult(
         z_scores=z_scores,

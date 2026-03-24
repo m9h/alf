@@ -71,6 +71,7 @@ def _entropy(p: np.ndarray) -> float:
 # HierarchicalLevel
 # ==========================================================================
 
+
 class HierarchicalLevel:
     """One level of a hierarchical generative model.
 
@@ -193,6 +194,7 @@ class HierarchicalLevel:
 # HierarchicalGenerativeModel
 # ==========================================================================
 
+
 class HierarchicalGenerativeModel:
     """A hierarchy of generative model levels.
 
@@ -213,6 +215,7 @@ class HierarchicalGenerativeModel:
 # ==========================================================================
 # Hierarchical inference
 # ==========================================================================
+
 
 def hierarchical_infer(
     hierarchy: HierarchicalGenerativeModel,
@@ -260,7 +263,9 @@ def hierarchical_infer(
                 A_eff = level.get_A_marginalized(parent_beliefs)
             elif level.context_dependent:
                 # Context-dependent but no parent provided: uniform
-                parent_beliefs = np.ones(level.num_parent_states) / level.num_parent_states
+                parent_beliefs = (
+                    np.ones(level.num_parent_states) / level.num_parent_states
+                )
                 A_eff = level.get_A_marginalized(parent_beliefs)
             else:
                 A_eff = level.A
@@ -298,6 +303,7 @@ def hierarchical_infer(
 # ==========================================================================
 # Hierarchical EFE
 # ==========================================================================
+
 
 def hierarchical_efe(
     hierarchy: HierarchicalGenerativeModel,
@@ -438,6 +444,7 @@ def evaluate_all_policies_hierarchical(
 # HierarchicalAgent
 # ==========================================================================
 
+
 class HierarchicalAgent:
     """Agent wrapper for hierarchical active inference.
 
@@ -475,9 +482,7 @@ class HierarchicalAgent:
 
     def reset(self) -> None:
         """Reset beliefs to priors."""
-        self.beliefs = [
-            _normalize(level.D.copy()) for level in self.hierarchy.levels
-        ]
+        self.beliefs = [_normalize(level.D.copy()) for level in self.hierarchy.levels]
 
     def step(
         self,

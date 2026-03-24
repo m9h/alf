@@ -27,8 +27,7 @@ References:
 
 from __future__ import annotations
 
-import warnings
-from typing import Any, Optional
+from typing import Optional
 
 import numpy as np
 
@@ -96,7 +95,7 @@ class BinDiscretizer:
         span = self.high - self.low
         span[span < 1e-8] = 1.0
         self.span = span
-        self.n_obs = n_bins ** obs_dim
+        self.n_obs = n_bins**obs_dim
 
     def discretize(self, obs: np.ndarray) -> int:
         """Map a continuous observation vector to a flat integer index."""
@@ -144,7 +143,10 @@ class KMeansDiscretizer:
         indices = [rng.randint(n)]
         for _ in range(1, k):
             dists = np.min(
-                [np.sum((observations - observations[c]) ** 2, axis=1) for c in indices],
+                [
+                    np.sum((observations - observations[c]) ** 2, axis=1)
+                    for c in indices
+                ],
                 axis=0,
             )
             probs = dists / (dists.sum() + 1e-16)
@@ -240,7 +242,9 @@ class NeurogymAdapter:
 
         # Observation bounds -- clamp infinities to practical range.
         low = obs_low if obs_low is not None else np.asarray(obs_space.low).flatten()
-        high = obs_high if obs_high is not None else np.asarray(obs_space.high).flatten()
+        high = (
+            obs_high if obs_high is not None else np.asarray(obs_space.high).flatten()
+        )
         low = np.where(np.isfinite(low), low, -10.0)
         high = np.where(np.isfinite(high), high, 10.0)
 
@@ -374,7 +378,10 @@ class NeurogymAdapter:
 
         # If kmeans and not fitted, collect raw observations for fitting.
         raw_obs_for_fit: list[np.ndarray] = []
-        need_fit = isinstance(self._discretizer, KMeansDiscretizer) and not self._discretizer.fitted
+        need_fit = (
+            isinstance(self._discretizer, KMeansDiscretizer)
+            and not self._discretizer.fitted
+        )
 
         for _ in range(n_episodes):
             result = self.env.reset()
@@ -424,9 +431,7 @@ class NeurogymAdapter:
 
             # Re-discretize all raw observations into transitions.
             # We need a second pass since we only stored raw obs.
-            obs_list, transitions, obs_rewards = self._rediscretize_pass(
-                n_episodes
-            )
+            obs_list, transitions, obs_rewards = self._rediscretize_pass(n_episodes)
 
         # ------------------------------------------------------------------
         # Estimate matrices

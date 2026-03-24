@@ -160,7 +160,9 @@ def build_neuronav_t_maze(
     env = GraphEnv(template=GraphTemplate.t_graph, obs_type="index")
     env.reset()
     gm = GraphEnvToGenerativeModel(
-        env, reward_magnitude=reward_magnitude, T=T,
+        env,
+        reward_magnitude=reward_magnitude,
+        T=T,
     )
     return gm, env
 
@@ -180,7 +182,9 @@ def build_neuronav_two_step(
     env = GraphEnv(template=GraphTemplate.two_step, obs_type="index")
     env.reset()
     gm = GraphEnvToGenerativeModel(
-        env, reward_magnitude=reward_magnitude, T=T,
+        env,
+        reward_magnitude=reward_magnitude,
+        T=T,
     )
     return gm, env
 
@@ -200,7 +204,9 @@ def build_neuronav_three_arm_bandit(
     env = GraphEnv(template=GraphTemplate.three_arm_bandit, obs_type="index")
     env.reset()
     gm = GraphEnvToGenerativeModel(
-        env, reward_magnitude=reward_magnitude, T=T,
+        env,
+        reward_magnitude=reward_magnitude,
+        T=T,
     )
     return gm, env
 
@@ -338,7 +344,9 @@ class NeuroNavRunner:
 
             if verbose:
                 aif_r = aif_result["total_reward"]
-                msg = f"  Ep {ep:3d} | AIF reward={aif_r:.2f} steps={aif_result['steps']}"
+                msg = (
+                    f"  Ep {ep:3d} | AIF reward={aif_r:.2f} steps={aif_result['steps']}"
+                )
                 if rl_episodes:
                     rl_r = rl_result["total_reward"]
                     msg += f" | RL reward={rl_r:.2f} steps={rl_result['steps']}"

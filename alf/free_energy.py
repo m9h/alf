@@ -42,6 +42,7 @@ from alf.jax_core import entropy as _entropy, safe_log, safe_normalize
 # Named tuple for EFE decomposition
 # ---------------------------------------------------------------------------
 
+
 class EFEDecomposition(NamedTuple):
     """Decomposed Expected Free Energy.
 
@@ -52,6 +53,7 @@ class EFEDecomposition(NamedTuple):
         epistemic: Epistemic value (information gain / ambiguity reduction).
             -E_q[H[P(o|s)]] — negative expected ambiguity.
     """
+
     G_total: float
     pragmatic: float
     epistemic: float
@@ -60,6 +62,7 @@ class EFEDecomposition(NamedTuple):
 # ---------------------------------------------------------------------------
 # 1. Variational Free Energy (VFE) — numpy version
 # ---------------------------------------------------------------------------
+
 
 def variational_free_energy(
     q_s: np.ndarray,
@@ -97,6 +100,7 @@ def variational_free_energy(
 # ---------------------------------------------------------------------------
 # 2. Free energy from beliefs (wrapper for GenerativeModel)
 # ---------------------------------------------------------------------------
+
 
 def free_energy_from_beliefs(
     gm: GenerativeModel,
@@ -137,6 +141,7 @@ def free_energy_from_beliefs(
 # ---------------------------------------------------------------------------
 # 3. Expected Free Energy decomposition — numpy version
 # ---------------------------------------------------------------------------
+
 
 def expected_free_energy_decomposed(
     A: np.ndarray,
@@ -195,6 +200,7 @@ def expected_free_energy_decomposed(
 # 4. Generalized Free Energy (Parr & Friston, 2019)
 # ---------------------------------------------------------------------------
 
+
 def generalized_free_energy(
     q_s: np.ndarray,
     A: np.ndarray,
@@ -239,9 +245,7 @@ def generalized_free_energy(
     for t in range(T):
         action = int(policy[t])
 
-        decomp = expected_free_energy_decomposed(
-            A, B, C, current_beliefs, action
-        )
+        decomp = expected_free_energy_decomposed(A, B, C, current_beliefs, action)
         F_efe_total += decomp.G_total
 
         # Propagate beliefs forward
@@ -256,6 +260,7 @@ def generalized_free_energy(
 # =========================================================================
 # 5. JAX-native versions (jit-compatible, vmap-compatible)
 # =========================================================================
+
 
 def jax_variational_free_energy(
     q_s: jnp.ndarray,
@@ -386,9 +391,9 @@ def jax_vfe_batch(
     Returns:
         F_batch: VFE for each element, shape (batch,).
     """
-    return jax.vmap(
-        jax_variational_free_energy, in_axes=(0, None, None, 0)
-    )(q_s_batch, A, prior_s, observations)
+    return jax.vmap(jax_variational_free_energy, in_axes=(0, None, None, 0))(
+        q_s_batch, A, prior_s, observations
+    )
 
 
 # Convenience: vmap-ready EFE decomposition over actions
@@ -410,6 +415,6 @@ def jax_efe_all_actions(
         Tuple of (G_all, pragmatic_all, epistemic_all), each shape (num_actions,).
     """
     num_actions = B.shape[-1]
-    return jax.vmap(
-        lambda a: jax_expected_free_energy_decomposed(A, B, C, beliefs, a)
-    )(jnp.arange(num_actions))
+    return jax.vmap(lambda a: jax_expected_free_energy_decomposed(A, B, C, beliefs, a))(
+        jnp.arange(num_actions)
+    )

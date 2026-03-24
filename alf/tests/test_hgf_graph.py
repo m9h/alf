@@ -21,9 +21,7 @@ from alf.hgf.updates import (
 )
 from alf.hgf.graph import (
     HGFNode,
-    HGFGraph,
     build_graph,
-    graph_hgf_update,
     graph_hgf,
     graph_hgf_surprise,
     make_standard_3level,
@@ -34,6 +32,7 @@ from alf.hgf.graph import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def generate_switching_binary(n=200, switch_prob=0.05, seed=42):
     """Generate binary observations from a switching source."""
@@ -65,6 +64,7 @@ def generate_volatile_continuous(n=200, seed=42):
 # Equivalence tests: graph matches hardcoded implementations
 # ---------------------------------------------------------------------------
 
+
 def test_standard_3level_matches_continuous_hgf():
     """Verify make_standard_3level gives identical results to continuous_hgf."""
     obs = jnp.array(generate_volatile_continuous(n=100))
@@ -88,11 +88,18 @@ def test_standard_3level_matches_continuous_hgf():
 
     # Graph-based 3-level HGF
     graph, init_mus, init_pis = make_standard_3level(
-        omega_1=-3.0, omega_2=-3.0, kappa_1=1.0, kappa_2=1.0,
-        theta=0.01, pi_u=100.0,
-        mu_1_0=0.0, sigma_1_0=1.0,
-        mu_2_0=0.0, sigma_2_0=1.0,
-        mu_3_0=0.0, sigma_3_0=1.0,
+        omega_1=-3.0,
+        omega_2=-3.0,
+        kappa_1=1.0,
+        kappa_2=1.0,
+        theta=0.01,
+        pi_u=100.0,
+        mu_1_0=0.0,
+        sigma_1_0=1.0,
+        mu_2_0=0.0,
+        sigma_2_0=1.0,
+        mu_3_0=0.0,
+        sigma_3_0=1.0,
     )
     graph_result = graph_hgf(obs, graph, init_mus, init_pis)
 
@@ -133,7 +140,9 @@ def test_binary_2level_matches_binary_hgf():
 
     # Graph-based binary HGF
     graph, init_mus, init_pis = make_binary_2level(
-        omega_2=-2.0, mu_2_0=0.0, sigma_2_0=1.0,
+        omega_2=-2.0,
+        mu_2_0=0.0,
+        sigma_2_0=1.0,
     )
     graph_result = graph_hgf(obs, graph, init_mus, init_pis)
 
@@ -164,21 +173,45 @@ def test_binary_2level_matches_binary_hgf():
 # n-level tests
 # ---------------------------------------------------------------------------
 
+
 def test_4level_runs():
     """Test that a 4-level HGF graph runs without errors."""
     nodes = [
-        HGFNode(node_id=0, parent_ids=(1,), coupling_types=(0,),
-                omega=jnp.array(-3.0), kappa=jnp.array([1.0])),
-        HGFNode(node_id=1, parent_ids=(2,), coupling_types=(0,),
-                omega=jnp.array(-3.0), kappa=jnp.array([1.0])),
-        HGFNode(node_id=2, parent_ids=(3,), coupling_types=(0,),
-                omega=jnp.array(-3.0), kappa=jnp.array([1.0])),
-        HGFNode(node_id=3, parent_ids=(), coupling_types=(),
-                omega=jnp.array(0.0), kappa=jnp.array([])),
+        HGFNode(
+            node_id=0,
+            parent_ids=(1,),
+            coupling_types=(0,),
+            omega=jnp.array(-3.0),
+            kappa=jnp.array([1.0]),
+        ),
+        HGFNode(
+            node_id=1,
+            parent_ids=(2,),
+            coupling_types=(0,),
+            omega=jnp.array(-3.0),
+            kappa=jnp.array([1.0]),
+        ),
+        HGFNode(
+            node_id=2,
+            parent_ids=(3,),
+            coupling_types=(0,),
+            omega=jnp.array(-3.0),
+            kappa=jnp.array([1.0]),
+        ),
+        HGFNode(
+            node_id=3,
+            parent_ids=(),
+            coupling_types=(),
+            omega=jnp.array(0.0),
+            kappa=jnp.array([]),
+        ),
     ]
     graph = build_graph(
-        nodes=nodes, input_node_ids=(0,), pi_u=100.0,
-        is_binary=False, tonic_drift={3: 0.01},
+        nodes=nodes,
+        input_node_ids=(0,),
+        pi_u=100.0,
+        is_binary=False,
+        tonic_drift={3: 0.01},
     )
 
     obs = jnp.array(generate_volatile_continuous(n=50))
@@ -202,6 +235,7 @@ def test_4level_runs():
 # ---------------------------------------------------------------------------
 # JIT and differentiability tests
 # ---------------------------------------------------------------------------
+
 
 def test_graph_hgf_jit():
     """Test that graph HGF works under jax.jit."""
@@ -268,6 +302,7 @@ def test_graph_hgf_binary_differentiable():
 # Multi-input and custom coupling tests
 # ---------------------------------------------------------------------------
 
+
 def test_multi_input_graph():
     """Test a graph with 2 input nodes sharing a volatility parent.
 
@@ -279,16 +314,34 @@ def test_multi_input_graph():
     This models two correlated signals whose volatility is jointly tracked.
     """
     nodes = [
-        HGFNode(node_id=0, parent_ids=(2,), coupling_types=(0,),
-                omega=jnp.array(-3.0), kappa=jnp.array([1.0])),
-        HGFNode(node_id=1, parent_ids=(2,), coupling_types=(0,),
-                omega=jnp.array(-3.0), kappa=jnp.array([1.0])),
-        HGFNode(node_id=2, parent_ids=(), coupling_types=(),
-                omega=jnp.array(0.0), kappa=jnp.array([])),
+        HGFNode(
+            node_id=0,
+            parent_ids=(2,),
+            coupling_types=(0,),
+            omega=jnp.array(-3.0),
+            kappa=jnp.array([1.0]),
+        ),
+        HGFNode(
+            node_id=1,
+            parent_ids=(2,),
+            coupling_types=(0,),
+            omega=jnp.array(-3.0),
+            kappa=jnp.array([1.0]),
+        ),
+        HGFNode(
+            node_id=2,
+            parent_ids=(),
+            coupling_types=(),
+            omega=jnp.array(0.0),
+            kappa=jnp.array([]),
+        ),
     ]
     graph = build_graph(
-        nodes=nodes, input_node_ids=(0,), pi_u=100.0,
-        is_binary=False, tonic_drift={2: 0.01},
+        nodes=nodes,
+        input_node_ids=(0,),
+        pi_u=100.0,
+        is_binary=False,
+        tonic_drift={2: 0.01},
     )
 
     obs = jnp.array(generate_volatile_continuous(n=50))
@@ -325,13 +378,25 @@ def test_custom_coupling():
             omega=jnp.array(-3.0),
             kappa=jnp.array([1.0, 0.5]),
         ),
-        HGFNode(node_id=1, parent_ids=(), coupling_types=(),
-                omega=jnp.array(0.0), kappa=jnp.array([])),
-        HGFNode(node_id=2, parent_ids=(), coupling_types=(),
-                omega=jnp.array(0.0), kappa=jnp.array([])),
+        HGFNode(
+            node_id=1,
+            parent_ids=(),
+            coupling_types=(),
+            omega=jnp.array(0.0),
+            kappa=jnp.array([]),
+        ),
+        HGFNode(
+            node_id=2,
+            parent_ids=(),
+            coupling_types=(),
+            omega=jnp.array(0.0),
+            kappa=jnp.array([]),
+        ),
     ]
     graph = build_graph(
-        nodes=nodes, input_node_ids=(0,), pi_u=100.0,
+        nodes=nodes,
+        input_node_ids=(0,),
+        pi_u=100.0,
         is_binary=False,
         tonic_drift={1: 0.01, 2: 0.1},
     )
@@ -348,12 +413,8 @@ def test_custom_coupling():
     assert jnp.all(jnp.isfinite(result.surprise)), "surprise not finite"
 
     # Both parents should be updated
-    assert not jnp.all(result.mu[:, 1] == 0.0), (
-        "Volatility parent should be updated"
-    )
-    assert not jnp.all(result.mu[:, 2] == 0.0), (
-        "Value parent should be updated"
-    )
+    assert not jnp.all(result.mu[:, 1] == 0.0), "Volatility parent should be updated"
+    assert not jnp.all(result.mu[:, 2] == 0.0), "Value parent should be updated"
 
 
 def test_3level_total_surprise_matches():
@@ -377,16 +438,25 @@ def test_3level_total_surprise_matches():
     ref_surprise = continuous_hgf_surprise(obs, params)
 
     graph, init_mus, init_pis = make_standard_3level(
-        omega_1=-4.0, omega_2=-2.0, kappa_1=1.0, kappa_2=0.5,
-        theta=0.05, pi_u=50.0,
-        mu_1_0=1.0, sigma_1_0=0.5,
-        mu_2_0=-1.0, sigma_2_0=2.0,
-        mu_3_0=0.5, sigma_3_0=0.8,
+        omega_1=-4.0,
+        omega_2=-2.0,
+        kappa_1=1.0,
+        kappa_2=0.5,
+        theta=0.05,
+        pi_u=50.0,
+        mu_1_0=1.0,
+        sigma_1_0=0.5,
+        mu_2_0=-1.0,
+        sigma_2_0=2.0,
+        mu_3_0=0.5,
+        sigma_3_0=0.8,
     )
     graph_surprise = graph_hgf_surprise(obs, graph, init_mus, init_pis)
 
     np.testing.assert_allclose(
-        float(graph_surprise), float(ref_surprise), atol=1e-5,
+        float(graph_surprise),
+        float(ref_surprise),
+        atol=1e-5,
         err_msg="Total surprise differs between graph and hardcoded HGF",
     )
 
@@ -403,16 +473,21 @@ def test_binary_total_surprise_matches():
     ref_surprise = binary_hgf_surprise(obs, params)
 
     graph, init_mus, init_pis = make_binary_2level(
-        omega_2=-3.0, mu_2_0=0.5, sigma_2_0=2.0,
+        omega_2=-3.0,
+        mu_2_0=0.5,
+        sigma_2_0=2.0,
     )
     graph_surprise = graph_hgf_surprise(obs, graph, init_mus, init_pis)
 
     np.testing.assert_allclose(
-        float(graph_surprise), float(ref_surprise), atol=1e-5,
+        float(graph_surprise),
+        float(ref_surprise),
+        atol=1e-5,
         err_msg="Total surprise differs between graph and hardcoded binary HGF",
     )
 
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "--tb=short"])

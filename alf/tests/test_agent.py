@@ -6,18 +6,25 @@ from alf.generative_model import GenerativeModel
 from alf.agent import AnalyticAgent
 import alf.policy as alf_policy
 
+
 def build_simple_model():
     """Build a minimal model for testing."""
-    A = [np.array([
-        [0.9, 0.1],
-        [0.1, 0.9],
-    ])]
-    B = [np.array([
-        [[0.9, 0.1],
-         [0.1, 0.9]],
-        [[0.1, 0.9],
-         [0.9, 0.1]],
-    ]).transpose(1, 2, 0)]
+    A = [
+        np.array(
+            [
+                [0.9, 0.1],
+                [0.1, 0.9],
+            ]
+        )
+    ]
+    B = [
+        np.array(
+            [
+                [[0.9, 0.1], [0.1, 0.9]],
+                [[0.1, 0.9], [0.9, 0.1]],
+            ]
+        ).transpose(1, 2, 0)
+    ]
     C = [np.array([2.0, -2.0])]
     D = [np.array([0.5, 0.5])]
     return GenerativeModel(A=A, B=B, C=C, D=D, T=1)
@@ -59,6 +66,8 @@ def test_analytic_agent_update_precision():
     assert np.isclose(agent.gamma, expected_gamma)
     assert np.isclose(agent.gamma, 0.1), f"Expected 0.1, got {agent.gamma}"
 
+
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "--tb=short"])

@@ -38,7 +38,6 @@ import numpy as np
 
 from alf.ddm.wiener import (
     DDMParams,
-    DDMResult,
     wiener_log_density_batch,
     ddm_nll,
     simulate_ddm,
@@ -56,10 +55,12 @@ eps = 1e-16
 # Optional dependencies
 # ---------------------------------------------------------------------------
 
+
 def _try_import_optax():
     """Try to import optax, return None if unavailable."""
     try:
         import optax
+
         return optax
     except ImportError:
         return None
@@ -71,6 +72,7 @@ def _try_import_numpyro():
         import numpyro
         import numpyro.distributions as dist
         from numpyro.infer import MCMC, NUTS
+
         return numpyro, dist, MCMC, NUTS
     except ImportError:
         return None
@@ -79,6 +81,7 @@ def _try_import_numpyro():
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
+
 
 class DDMFitResult(NamedTuple):
     """Result of DDM parameter fitting (MLE).
@@ -95,6 +98,7 @@ class DDMFitResult(NamedTuple):
         loss_history: NLL at each epoch.
         n_trials: Number of trials used for fitting.
     """
+
     v: float
     a: float
     w: float
@@ -119,6 +123,7 @@ class DDMRecoveryResult(NamedTuple):
         rmse: Root mean squared error for each parameter.
         coverage_95: Proportion of true values within 95% CI (if available).
     """
+
     true_params: np.ndarray
     recovered_params: np.ndarray
     param_names: tuple
@@ -131,6 +136,7 @@ class DDMRecoveryResult(NamedTuple):
 # ---------------------------------------------------------------------------
 # Parameter transforms (unconstrained <-> constrained)
 # ---------------------------------------------------------------------------
+
 
 def _to_unconstrained(
     v: jnp.ndarray,
@@ -183,6 +189,7 @@ def _to_constrained(
 # ---------------------------------------------------------------------------
 # MLE fitting
 # ---------------------------------------------------------------------------
+
 
 def _nll_unconstrained(
     v_unc: jnp.ndarray,
@@ -259,9 +266,7 @@ def fit_ddm_mle(
         tau_init = jnp.array(float(init_params.tau))
 
     # Transform to unconstrained space
-    v_unc, log_a, logit_w, log_tau = _to_unconstrained(
-        v_init, a_init, w_init, tau_init
-    )
+    v_unc, log_a, logit_w, log_tau = _to_unconstrained(v_init, a_init, w_init, tau_init)
 
     grad_fn = jax.grad(_nll_unconstrained, argnums=(0, 1, 2, 3))
 
@@ -343,6 +348,7 @@ def fit_ddm_mle(
 # Bayesian fitting (single subject)
 # ---------------------------------------------------------------------------
 
+
 def fit_ddm_bayesian(
     rt: np.ndarray,
     choice: np.ndarray,
@@ -398,15 +404,14 @@ def fit_ddm_bayesian(
         tau = numpyro.sample("tau", dist.LogNormal(-1.0, 0.5))
 
         # Likelihood via Navarro-Fuss density
-        log_densities = wiener_log_density_batch(
-            rt_obs, choice_obs, v, a, w, tau
-        )
+        log_densities = wiener_log_density_batch(rt_obs, choice_obs, v, a, w, tau)
         numpyro.factor("obs", jnp.sum(log_densities))
 
     # Run MCMC
     kernel = NUTS(model)
-    mcmc = MCMC(kernel, num_warmup=num_warmup, num_samples=num_samples,
-                progress_bar=False)
+    mcmc = MCMC(
+        kernel, num_warmup=num_warmup, num_samples=num_samples, progress_bar=False
+    )
     mcmc.run(jax.random.PRNGKey(seed), rt_jnp, choice_jnp)
 
     samples = mcmc.get_samples()
@@ -440,6 +445,7 @@ def fit_ddm_bayesian(
 # ---------------------------------------------------------------------------
 # Hierarchical Bayesian fitting (multi-subject)
 # ---------------------------------------------------------------------------
+
 
 def fit_ddm_hierarchical(
     rt_list: list,
@@ -542,15 +548,11 @@ def fit_ddm_hierarchical(
             log_a = mu_log_a + sigma_log_a * log_a_offset
             a = numpyro.deterministic("a", jnp.exp(log_a))
 
-            logit_w_offset = numpyro.sample(
-                "logit_w_offset", dist.Normal(0.0, 1.0)
-            )
+            logit_w_offset = numpyro.sample("logit_w_offset", dist.Normal(0.0, 1.0))
             logit_w = mu_logit_w + sigma_logit_w * logit_w_offset
             w = numpyro.deterministic("w", jax.nn.sigmoid(logit_w))
 
-            log_tau_offset = numpyro.sample(
-                "log_tau_offset", dist.Normal(0.0, 1.0)
-            )
+            log_tau_offset = numpyro.sample("log_tau_offset", dist.Normal(0.0, 1.0))
             log_tau = mu_log_tau + sigma_log_tau * log_tau_offset
             tau = numpyro.deterministic("tau", jnp.exp(log_tau))
 
@@ -564,6 +566,7 @@ def fit_ddm_hierarchical(
         # (each trial may have different subject parameters)
         def single_trial_ll(rt_i, choice_i, v_i, a_i, w_i, tau_i):
             from alf.ddm.wiener import wiener_log_density
+
             return wiener_log_density(rt_i, choice_i, v_i, a_i, w_i, tau_i)
 
         log_densities = jax.vmap(single_trial_ll)(
@@ -573,19 +576,25 @@ def fit_ddm_hierarchical(
 
     # Run MCMC
     kernel = NUTS(model)
-    mcmc = MCMC(kernel, num_warmup=num_warmup, num_samples=num_samples,
-                progress_bar=False)
+    mcmc = MCMC(
+        kernel, num_warmup=num_warmup, num_samples=num_samples, progress_bar=False
+    )
     mcmc.run(
-        jax.random.PRNGKey(seed),
-        rt_concat, choice_concat, subj_idx_concat, n_subjects
+        jax.random.PRNGKey(seed), rt_concat, choice_concat, subj_idx_concat, n_subjects
     )
 
     samples = mcmc.get_samples()
 
     # Build group-level summary
     group_params = [
-        "mu_v", "sigma_v", "mu_log_a", "sigma_log_a",
-        "mu_logit_w", "sigma_logit_w", "mu_log_tau", "sigma_log_tau",
+        "mu_v",
+        "sigma_v",
+        "mu_log_a",
+        "sigma_log_a",
+        "mu_logit_w",
+        "sigma_logit_w",
+        "mu_log_tau",
+        "sigma_log_tau",
     ]
     group_summary = {}
     for name in group_params:
@@ -625,6 +634,7 @@ def fit_ddm_hierarchical(
 # ---------------------------------------------------------------------------
 # Posterior predictive simulation
 # ---------------------------------------------------------------------------
+
 
 def ddm_posterior_predictive(
     params_or_samples: dict,
@@ -681,8 +691,12 @@ def ddm_posterior_predictive(
 
     # Simulate
     result = simulate_ddm(
-        v=v, a=a, w=w, tau=tau,
-        n_trials=n_trials, seed=seed,
+        v=v,
+        a=a,
+        w=w,
+        tau=tau,
+        n_trials=n_trials,
+        seed=seed,
     )
 
     return {
@@ -695,6 +709,7 @@ def ddm_posterior_predictive(
 # ---------------------------------------------------------------------------
 # Parameter recovery
 # ---------------------------------------------------------------------------
+
 
 def ddm_recovery_check(
     true_params: Optional[DDMParams] = None,
@@ -756,21 +771,28 @@ def ddm_recovery_check(
 
         # Simulate data
         sim = simulate_ddm(
-            v=v_true, a=a_true, w=w_true, tau=tau_true,
-            n_trials=n_trials, seed=rep_seed,
+            v=v_true,
+            a=a_true,
+            w=w_true,
+            tau=tau_true,
+            n_trials=n_trials,
+            seed=rep_seed,
         )
 
         # Fit
         result = fit_ddm_mle(
-            rt=sim.rt, choice=sim.choice,
-            num_epochs=num_epochs, lr=lr, verbose=False,
+            rt=sim.rt,
+            choice=sim.choice,
+            num_epochs=num_epochs,
+            lr=lr,
+            verbose=False,
         )
 
         all_recovered[rep] = [result.v, result.a, result.w, result.tau]
 
         if verbose and (rep % 10 == 0 or rep == n_repeats - 1):
             print(
-                f"  Recovery {rep+1}/{n_repeats}: "
+                f"  Recovery {rep + 1}/{n_repeats}: "
                 f"v={v_true:.2f}->{result.v:.2f}, "
                 f"a={a_true:.2f}->{result.a:.2f}, "
                 f"w={w_true:.2f}->{result.w:.2f}, "

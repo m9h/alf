@@ -80,9 +80,8 @@ def ddm_to_policy_probs(
 
     # For small |v*a|, P(upper) -> w (unbiased diffusion)
     use_limit = jnp.abs(va) < 1e-6
-    p_upper_exact = (
-        (1.0 - jnp.exp(exponent_bias))
-        / jnp.clip(1.0 - jnp.exp(exponent_full), eps)
+    p_upper_exact = (1.0 - jnp.exp(exponent_bias)) / jnp.clip(
+        1.0 - jnp.exp(exponent_full), eps
     )
     p_upper = jnp.where(use_limit, w, p_upper_exact)
     p_upper = jnp.clip(p_upper, eps, 1.0 - eps)

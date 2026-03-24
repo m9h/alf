@@ -56,30 +56,125 @@ from alf.generative_model import GenerativeModel
 
 YANG_TASK_DEFINITIONS: dict[str, dict] = {
     # --- Go / Anti tasks ---
-    "Go":              {"modality": 1, "rule": "go",    "timing": "immediate", "category": "go_anti"},
-    "Anti":            {"modality": 1, "rule": "anti",  "timing": "immediate", "category": "go_anti"},
-    "DelayGo":         {"modality": 1, "rule": "go",    "timing": "delayed",   "category": "go_anti"},
-    "DelayAnti":       {"modality": 1, "rule": "anti",  "timing": "delayed",   "category": "go_anti"},
+    "Go": {"modality": 1, "rule": "go", "timing": "immediate", "category": "go_anti"},
+    "Anti": {
+        "modality": 1,
+        "rule": "anti",
+        "timing": "immediate",
+        "category": "go_anti",
+    },
+    "DelayGo": {
+        "modality": 1,
+        "rule": "go",
+        "timing": "delayed",
+        "category": "go_anti",
+    },
+    "DelayAnti": {
+        "modality": 1,
+        "rule": "anti",
+        "timing": "delayed",
+        "category": "go_anti",
+    },
     # --- Context-dependent Go / Anti (modality 1 vs 2) ---
-    "CtxGo1":          {"modality": 1, "rule": "go",    "timing": "immediate", "category": "context"},
-    "CtxGo2":          {"modality": 2, "rule": "go",    "timing": "immediate", "category": "context"},
-    "CtxAnti1":        {"modality": 1, "rule": "anti",  "timing": "immediate", "category": "context"},
-    "CtxAnti2":        {"modality": 2, "rule": "anti",  "timing": "immediate", "category": "context"},
-    "CtxDelayGo1":     {"modality": 1, "rule": "go",    "timing": "delayed",   "category": "context"},
-    "CtxDelayGo2":     {"modality": 2, "rule": "go",    "timing": "delayed",   "category": "context"},
-    "CtxDelayAnti1":   {"modality": 1, "rule": "anti",  "timing": "delayed",   "category": "context"},
-    "CtxDelayAnti2":   {"modality": 2, "rule": "anti",  "timing": "delayed",   "category": "context"},
+    "CtxGo1": {
+        "modality": 1,
+        "rule": "go",
+        "timing": "immediate",
+        "category": "context",
+    },
+    "CtxGo2": {
+        "modality": 2,
+        "rule": "go",
+        "timing": "immediate",
+        "category": "context",
+    },
+    "CtxAnti1": {
+        "modality": 1,
+        "rule": "anti",
+        "timing": "immediate",
+        "category": "context",
+    },
+    "CtxAnti2": {
+        "modality": 2,
+        "rule": "anti",
+        "timing": "immediate",
+        "category": "context",
+    },
+    "CtxDelayGo1": {
+        "modality": 1,
+        "rule": "go",
+        "timing": "delayed",
+        "category": "context",
+    },
+    "CtxDelayGo2": {
+        "modality": 2,
+        "rule": "go",
+        "timing": "delayed",
+        "category": "context",
+    },
+    "CtxDelayAnti1": {
+        "modality": 1,
+        "rule": "anti",
+        "timing": "delayed",
+        "category": "context",
+    },
+    "CtxDelayAnti2": {
+        "modality": 2,
+        "rule": "anti",
+        "timing": "delayed",
+        "category": "context",
+    },
     # --- Matching tasks ---
-    "DM1":             {"modality": 1, "rule": "match",     "timing": "delayed", "category": "matching"},
-    "DM2":             {"modality": 2, "rule": "match",     "timing": "delayed", "category": "matching"},
-    "CtxDM1":          {"modality": 1, "rule": "ctx_match", "timing": "delayed", "category": "matching"},
-    "CtxDM2":          {"modality": 2, "rule": "ctx_match", "timing": "delayed", "category": "matching"},
-    "MultiDM":         {"modality": 0, "rule": "multi_match", "timing": "delayed", "category": "matching"},
+    "DM1": {
+        "modality": 1,
+        "rule": "match",
+        "timing": "delayed",
+        "category": "matching",
+    },
+    "DM2": {
+        "modality": 2,
+        "rule": "match",
+        "timing": "delayed",
+        "category": "matching",
+    },
+    "CtxDM1": {
+        "modality": 1,
+        "rule": "ctx_match",
+        "timing": "delayed",
+        "category": "matching",
+    },
+    "CtxDM2": {
+        "modality": 2,
+        "rule": "ctx_match",
+        "timing": "delayed",
+        "category": "matching",
+    },
+    "MultiDM": {
+        "modality": 0,
+        "rule": "multi_match",
+        "timing": "delayed",
+        "category": "matching",
+    },
     # --- Anti-matching tasks ---
-    "AntiDM1":         {"modality": 1, "rule": "anti_match", "timing": "delayed", "category": "matching"},
-    "AntiDM2":         {"modality": 2, "rule": "anti_match", "timing": "delayed", "category": "matching"},
+    "AntiDM1": {
+        "modality": 1,
+        "rule": "anti_match",
+        "timing": "delayed",
+        "category": "matching",
+    },
+    "AntiDM2": {
+        "modality": 2,
+        "rule": "anti_match",
+        "timing": "delayed",
+        "category": "matching",
+    },
     # --- Duration discrimination ---
-    "Dur1vs2":         {"modality": 0, "rule": "duration",   "timing": "delayed", "category": "duration"},
+    "Dur1vs2": {
+        "modality": 0,
+        "rule": "duration",
+        "timing": "delayed",
+        "category": "duration",
+    },
 }
 
 # Number of directions for the stimulus ring (Yang et al. use continuous;
@@ -101,10 +196,10 @@ STRENGTH_STRONG = 2
 NUM_STRENGTHS = 3
 
 # Observation modality indices for the compositional model
-OBS_MOD_FIXATION = 0   # fixation signal: on/off (2 outcomes)
-OBS_MOD_STIM1 = 1      # stimulus modality 1: direction bin or absent (NUM_DIRECTIONS + 1)
-OBS_MOD_STIM2 = 2      # stimulus modality 2: direction bin or absent (NUM_DIRECTIONS + 1)
-OBS_MOD_FEEDBACK = 3   # feedback: null/correct/incorrect (3 outcomes)
+OBS_MOD_FIXATION = 0  # fixation signal: on/off (2 outcomes)
+OBS_MOD_STIM1 = 1  # stimulus modality 1: direction bin or absent (NUM_DIRECTIONS + 1)
+OBS_MOD_STIM2 = 2  # stimulus modality 2: direction bin or absent (NUM_DIRECTIONS + 1)
+OBS_MOD_FEEDBACK = 3  # feedback: null/correct/incorrect (3 outcomes)
 
 NUM_OBS_FIXATION = 2
 NUM_OBS_STIM = NUM_DIRECTIONS + 1  # 8 directions + absent
@@ -120,6 +215,7 @@ def _softmax(x: np.ndarray) -> np.ndarray:
 # ============================================================================
 # Multi-factor sequential EFE (extends sequential_efe.py for multi-factor)
 # ============================================================================
+
 
 def multifactor_sequential_efe(
     A_list: list[np.ndarray],
@@ -256,6 +352,7 @@ def evaluate_all_policies_multifactor(
 # CompositionalModel: factored generative model for the Yang task battery
 # ============================================================================
 
+
 class CompositionalModel:
     """Factored generative model with compositional task structure.
 
@@ -324,7 +421,11 @@ class CompositionalModel:
 
     @property
     def state_factor_sizes(self) -> list[int]:
-        return [self.num_stimulus_states, self.num_phase_states, self.num_context_states]
+        return [
+            self.num_stimulus_states,
+            self.num_phase_states,
+            self.num_context_states,
+        ]
 
     @property
     def obs_modality_sizes(self) -> list[int]:
@@ -470,7 +571,7 @@ class CompositionalModel:
 
         # Fixation: slight preference for fixation being on (stay focused)
         C_fix = np.zeros(NUM_OBS_FIXATION)
-        C_fix[1] = 0.5   # mild preference for fixation-on
+        C_fix[1] = 0.5  # mild preference for fixation-on
 
         # Stimulus modalities: preferences depend on rule
         C_stim1 = np.zeros(NUM_OBS_STIM)
@@ -490,9 +591,9 @@ class CompositionalModel:
 
         # Feedback: strongly prefer correct, penalize incorrect
         C_fb = np.zeros(NUM_OBS_FEEDBACK)
-        C_fb[0] = 0.0    # null
-        C_fb[1] = 3.0    # correct
-        C_fb[2] = -3.0   # incorrect
+        C_fb[0] = 0.0  # null
+        C_fb[1] = 3.0  # correct
+        C_fb[2] = -3.0  # incorrect
 
         return [C_fix, C_stim1, C_stim2, C_fb]
 
@@ -563,6 +664,7 @@ class CompositionalModel:
 # ============================================================================
 # MultitaskGenerativeModel: top-level manager for multiple tasks
 # ============================================================================
+
 
 class MultitaskGenerativeModel:
     """Hierarchical generative model for multiple cognitive tasks.
@@ -652,7 +754,12 @@ class MultitaskGenerativeModel:
         for name in self._task_models:
             gm = self._task_models[name]
             self._task_models[name] = GenerativeModel(
-                A=gm.A, B=shared_B, C=gm.C, D=gm.D, E=gm.E, T=gm.T,
+                A=gm.A,
+                B=shared_B,
+                C=gm.C,
+                D=gm.D,
+                E=gm.E,
+                T=gm.T,
             )
 
     def _setup_compositional(self) -> None:
@@ -742,9 +849,7 @@ class MultitaskGenerativeModel:
                         A_slice = A_m[o_m]  # shape: (ns_f1, ..., ns_fN)
                         result = A_slice.copy()
                         for f in range(gm.num_factors - 1, -1, -1):
-                            result = np.tensordot(
-                                result, beliefs[f], axes=([-1], [0])
-                            )
+                            result = np.tensordot(result, beliefs[f], axes=([-1], [0]))
                         p_o = float(result)
 
                     p_o = max(p_o, eps)
@@ -790,6 +895,7 @@ class MultitaskGenerativeModel:
 # ============================================================================
 # Factory functions for building task batteries
 # ============================================================================
+
 
 def build_compositional_battery(
     task_names: Optional[list[str]] = None,
@@ -846,7 +952,7 @@ def build_simple_task_pair(
     Returns:
         MultitaskGenerativeModel in 'independent' mode.
     """
-    rng = np.random.RandomState(seed)
+    np.random.RandomState(seed)
 
     def _random_stochastic(rows, cols, rng_):
         """Generate a random column-stochastic matrix."""

@@ -28,7 +28,6 @@ from typing import NamedTuple, Optional
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +40,7 @@ eps = 1e-16
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
+
 
 class ComBatParams(NamedTuple):
     """Fitted ComBat harmonization parameters.
@@ -61,6 +61,7 @@ class ComBatParams(NamedTuple):
             shape (n_subjects, n_covariates) or None.
         n_sites: Number of sites (scalar).
     """
+
     grand_mean: jnp.ndarray
     site_means: jnp.ndarray
     site_vars: jnp.ndarray
@@ -74,6 +75,7 @@ class ComBatParams(NamedTuple):
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_site_design(
     site_labels: jnp.ndarray,
@@ -121,7 +123,7 @@ def _estimate_site_effects(
 
         # Site variance
         resid = jnp.where(mask[:, None], Y_stand - gamma_s[None, :], 0.0)
-        delta_s = jnp.sum(resid ** 2, axis=0) / jnp.clip(n_s - 1, eps)
+        delta_s = jnp.sum(resid**2, axis=0) / jnp.clip(n_s - 1, eps)
         delta_s = jnp.clip(delta_s, eps)
         delta = delta.at[s].set(delta_s)
 
@@ -196,7 +198,7 @@ def _eb_shrinkage_delta(
     #   mean = beta / (alpha - 1), var = beta^2 / ((alpha-1)^2 * (alpha-2))
     #   => alpha = 2 + mean^2 / var
     #   => beta = mean * (alpha - 1)
-    alpha = 2.0 + delta_bar ** 2 / delta_var
+    alpha = 2.0 + delta_bar**2 / delta_var
     beta = delta_bar * (alpha - 1.0)
 
     # Posterior mode for Inverse Gamma: beta / (alpha + 1)
@@ -217,6 +219,7 @@ def _eb_shrinkage_delta(
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def fit_combat(
     Y: jnp.ndarray,
@@ -250,9 +253,9 @@ def fit_combat(
     n_sites = int(jnp.max(site_labels)) + 1
 
     # Site counts
-    site_counts = jnp.array([
-        jnp.sum(site_labels == s) for s in range(n_sites)
-    ], dtype=jnp.float32)
+    site_counts = jnp.array(
+        [jnp.sum(site_labels == s) for s in range(n_sites)], dtype=jnp.float32
+    )
 
     # Step 1: Grand mean
     grand_mean = jnp.mean(Y, axis=0)  # (n_features,)
@@ -397,9 +400,7 @@ def combat_harmonize(
     Y_train_harm = apply_combat(
         Y_train, site_train, params, covariates=covariates_train
     )
-    Y_test_harm = apply_combat(
-        Y_test, site_test, params, covariates=covariates_test
-    )
+    Y_test_harm = apply_combat(Y_test, site_test, params, covariates=covariates_test)
 
     return Y_train_harm, Y_test_harm
 
@@ -407,6 +408,7 @@ def combat_harmonize(
 # ---------------------------------------------------------------------------
 # Vectorized ComBat (single-feature, vmappable)
 # ---------------------------------------------------------------------------
+
 
 def _fit_combat_single_feature(
     y: jnp.ndarray,
@@ -427,7 +429,7 @@ def _fit_combat_single_feature(
     Returns:
         Tuple of (grand_mean, gamma_star, delta_star, pooled_std).
     """
-    n_sites = site_indicators.shape[1]
+    site_indicators.shape[1]
 
     # Grand mean
     grand_mean = jnp.mean(y)
@@ -443,22 +445,20 @@ def _fit_combat_single_feature(
 
     # delta_s = sum_i (y_stand_i - gamma_s)^2 * I(site_i = s) / (n_s - 1)
     residuals = y_stand[:, None] - gamma[None, :]  # (n_subjects, n_sites)
-    sq_resid_weighted = residuals ** 2 * site_indicators  # zero out other sites
+    sq_resid_weighted = residuals**2 * site_indicators  # zero out other sites
     delta = jnp.sum(sq_resid_weighted, axis=0) / jnp.clip(site_counts - 1, eps)
     delta = jnp.clip(delta, eps)
 
     # EB shrinkage for gamma
     gamma_bar = jnp.mean(gamma)
     tau_sq = jnp.clip(jnp.var(gamma), eps)
-    weight = site_counts * tau_sq / jnp.clip(
-        site_counts * tau_sq + delta, eps
-    )
+    weight = site_counts * tau_sq / jnp.clip(site_counts * tau_sq + delta, eps)
     gamma_star = weight * gamma + (1.0 - weight) * gamma_bar
 
     # EB shrinkage for delta (Inverse Gamma)
     delta_bar = jnp.mean(delta)
     delta_var = jnp.clip(jnp.var(delta), eps)
-    alpha = 2.0 + delta_bar ** 2 / delta_var
+    alpha = 2.0 + delta_bar**2 / delta_var
     beta = delta_bar * (alpha - 1.0)
     delta_star = (0.5 * site_counts * delta + beta) / jnp.clip(
         0.5 * site_counts + alpha + 1.0, eps

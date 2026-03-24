@@ -33,6 +33,7 @@ from alf.learning import generate_data
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def model_spec():
     """Small model specification for tests."""
@@ -73,32 +74,49 @@ def synthetic_data():
     num_states = 3
     num_actions = 2
 
-    A = np.array([
-        [0.85, 0.05, 0.05],
-        [0.05, 0.05, 0.05],
-        [0.05, 0.85, 0.05],
-        [0.00, 0.00, 0.00],
-        [0.05, 0.05, 0.85],
-    ], dtype=np.float64)
+    A = np.array(
+        [
+            [0.85, 0.05, 0.05],
+            [0.05, 0.05, 0.05],
+            [0.05, 0.85, 0.05],
+            [0.00, 0.00, 0.00],
+            [0.05, 0.05, 0.85],
+        ],
+        dtype=np.float64,
+    )
     A[3, :] = 1.0 - A[:3, :].sum(axis=0) - A[4, :]
     A = np.clip(A, 0.001, None)
     A = A / A.sum(axis=0, keepdims=True)
 
     B = np.zeros((num_states, num_states, num_actions), dtype=np.float64)
-    B[1, 0, 0] = 0.9; B[0, 0, 0] = 0.05; B[2, 0, 0] = 0.05
-    B[2, 1, 0] = 0.9; B[0, 1, 0] = 0.05; B[1, 1, 0] = 0.05
-    B[0, 2, 0] = 0.9; B[1, 2, 0] = 0.05; B[2, 2, 0] = 0.05
-    B[0, 0, 1] = 0.9; B[1, 0, 1] = 0.05; B[2, 0, 1] = 0.05
-    B[1, 1, 1] = 0.9; B[0, 1, 1] = 0.05; B[2, 1, 1] = 0.05
-    B[2, 2, 1] = 0.9; B[0, 2, 1] = 0.05; B[1, 2, 1] = 0.05
+    B[1, 0, 0] = 0.9
+    B[0, 0, 0] = 0.05
+    B[2, 0, 0] = 0.05
+    B[2, 1, 0] = 0.9
+    B[0, 1, 0] = 0.05
+    B[1, 1, 0] = 0.05
+    B[0, 2, 0] = 0.9
+    B[1, 2, 0] = 0.05
+    B[2, 2, 0] = 0.05
+    B[0, 0, 1] = 0.9
+    B[1, 0, 1] = 0.05
+    B[2, 0, 1] = 0.05
+    B[1, 1, 1] = 0.9
+    B[0, 1, 1] = 0.05
+    B[2, 1, 1] = 0.05
+    B[2, 2, 1] = 0.9
+    B[0, 2, 1] = 0.05
+    B[1, 2, 1] = 0.05
 
     D = np.array([1.0 / 3, 1.0 / 3, 1.0 / 3])
 
     T = 500
     key = jax.random.PRNGKey(99)
     actions_seq = np.array(
-        [int(jax.random.randint(k, (), 0, num_actions))
-         for k in jax.random.split(key, T)]
+        [
+            int(jax.random.randint(k, (), 0, num_actions))
+            for k in jax.random.split(key, T)
+        ]
     )
 
     observations, states = generate_data(A, B, D, actions_seq, seed=123)
@@ -106,8 +124,12 @@ def synthetic_data():
     actions_padded = np.concatenate([actions_seq, [0]])
 
     return dict(
-        A=A, B=B, D=D,
-        num_obs=num_obs, num_states=num_states, num_actions=num_actions,
+        A=A,
+        B=B,
+        D=D,
+        num_obs=num_obs,
+        num_states=num_states,
+        num_actions=num_actions,
         observations=observations,
         obs_onehot=obs_onehot,
         actions=actions_padded,
@@ -119,8 +141,8 @@ def synthetic_data():
 # Test 1: MLP forward pass produces correct shapes
 # ---------------------------------------------------------------------------
 
-class TestMLPShapes:
 
+class TestMLPShapes:
     def test_encoder_init_shapes(self, model_spec):
         """Encoder init produces correct number of layers and shapes."""
         key = jax.random.PRNGKey(0)
@@ -166,8 +188,8 @@ class TestMLPShapes:
 # Test 2: Encoder output has correct dimensions
 # ---------------------------------------------------------------------------
 
-class TestEncoderOutput:
 
+class TestEncoderOutput:
     def test_encode_output_shape(self, encoder_params, model_spec):
         """Encoder forward pass produces (num_states,) logits."""
         obs = jnp.ones(model_spec["obs_dim"])
@@ -195,8 +217,8 @@ class TestEncoderOutput:
 # Test 3: Transition output has correct dimensions
 # ---------------------------------------------------------------------------
 
-class TestTransitionOutput:
 
+class TestTransitionOutput:
     def test_predict_transition_shape(self, transition_params, model_spec):
         """Transition forward pass produces (num_states,) logits."""
         beliefs = jnp.ones(model_spec["num_states"]) / model_spec["num_states"]
@@ -230,8 +252,8 @@ class TestTransitionOutput:
 # Test 4: Deep NLL is differentiable (jax.grad works)
 # ---------------------------------------------------------------------------
 
-class TestDifferentiability:
 
+class TestDifferentiability:
     def test_grad_encoder(self, encoder_params, transition_params, model_spec):
         """jax.grad works w.r.t. encoder_params."""
         T = 10
@@ -241,7 +263,11 @@ class TestDifferentiability:
 
         grad_fn = jax.grad(deep_analytic_nll, argnums=0)
         grads = grad_fn(
-            encoder_params, transition_params, D, obs, actions,
+            encoder_params,
+            transition_params,
+            D,
+            obs,
+            actions,
             model_spec["num_actions"],
         )
 
@@ -260,7 +286,11 @@ class TestDifferentiability:
 
         grad_fn = jax.grad(deep_analytic_nll, argnums=1)
         grads = grad_fn(
-            encoder_params, transition_params, D, obs, actions,
+            encoder_params,
+            transition_params,
+            D,
+            obs,
+            actions,
             model_spec["num_actions"],
         )
 
@@ -278,7 +308,11 @@ class TestDifferentiability:
 
         grad_fn = jax.grad(deep_analytic_nll, argnums=(0, 1))
         grad_enc, grad_trans = grad_fn(
-            encoder_params, transition_params, D, obs, actions,
+            encoder_params,
+            transition_params,
+            D,
+            obs,
+            actions,
             model_spec["num_actions"],
         )
 
@@ -290,8 +324,8 @@ class TestDifferentiability:
 # Test 5: Deep NLL under jit works
 # ---------------------------------------------------------------------------
 
-class TestJIT:
 
+class TestJIT:
     def test_nll_jit(self, encoder_params, transition_params, model_spec):
         """deep_analytic_nll works under jax.jit."""
         T = 10
@@ -305,11 +339,19 @@ class TestJIT:
         )
 
         nll_eager = deep_analytic_nll(
-            encoder_params, transition_params, D, obs, actions,
+            encoder_params,
+            transition_params,
+            D,
+            obs,
+            actions,
             model_spec["num_actions"],
         )
         nll_jit = jit_nll(
-            encoder_params, transition_params, D, obs, actions,
+            encoder_params,
+            transition_params,
+            D,
+            obs,
+            actions,
             model_spec["num_actions"],
         )
 
@@ -325,7 +367,10 @@ class TestJIT:
         @jax.jit
         def loss_and_grad(enc_p, trans_p):
             def loss_fn(ep, tp):
-                return deep_analytic_nll(ep, tp, D, obs, actions, model_spec["num_actions"])
+                return deep_analytic_nll(
+                    ep, tp, D, obs, actions, model_spec["num_actions"]
+                )
+
             loss = loss_fn(enc_p, trans_p)
             grads = jax.grad(loss_fn, argnums=(0, 1))(enc_p, trans_p)
             return loss, grads
@@ -339,8 +384,8 @@ class TestJIT:
 # Test 6: Training on synthetic discrete data reduces loss
 # ---------------------------------------------------------------------------
 
-class TestTraining:
 
+class TestTraining:
     def test_loss_decreases(self, synthetic_data):
         """Training loop reduces NLL over epochs."""
         result = learn_deep_model(
@@ -399,8 +444,8 @@ class TestTraining:
 # Test 7: Deep model recovers approximate A matrix structure
 # ---------------------------------------------------------------------------
 
-class TestARecovery:
 
+class TestARecovery:
     @pytest.mark.xfail(
         reason=(
             "Known limitation: encoder-based (recognition model) architecture "
@@ -451,13 +496,16 @@ class TestARecovery:
 # Additional integration tests
 # ---------------------------------------------------------------------------
 
-class TestDeepGenerativeModel:
 
+class TestDeepGenerativeModel:
     def test_init(self):
         """DeepGenerativeModel initializes without error."""
         dgm = DeepGenerativeModel(
-            obs_dim=10, num_states=4, num_actions=3,
-            encoder_hidden=[16], transition_hidden=[16],
+            obs_dim=10,
+            num_states=4,
+            num_actions=3,
+            encoder_hidden=[16],
+            transition_hidden=[16],
             seed=0,
         )
         assert len(dgm.encoder_params) == 2  # 1 hidden + 1 output
@@ -466,8 +514,11 @@ class TestDeepGenerativeModel:
     def test_likelihood_and_transition(self):
         """DeepGenerativeModel.get_likelihood and get_transition work."""
         dgm = DeepGenerativeModel(
-            obs_dim=5, num_states=3, num_actions=2,
-            encoder_hidden=[16, 16], transition_hidden=[16, 16],
+            obs_dim=5,
+            num_states=3,
+            num_actions=2,
+            encoder_hidden=[16, 16],
+            transition_hidden=[16, 16],
         )
 
         obs = jnp.array([1.0, 0.0, 0.0, 0.0, 0.0])
@@ -482,7 +533,6 @@ class TestDeepGenerativeModel:
 
 
 class TestNLLFiniteness:
-
     def test_nll_is_finite(self, encoder_params, transition_params, model_spec):
         """NLL produces a finite scalar."""
         T = 20
@@ -492,7 +542,11 @@ class TestNLLFiniteness:
         D = jnp.ones(model_spec["num_states"]) / model_spec["num_states"]
 
         nll = deep_analytic_nll(
-            encoder_params, transition_params, D, obs, actions,
+            encoder_params,
+            transition_params,
+            D,
+            obs,
+            actions,
             model_spec["num_actions"],
         )
         assert jnp.isfinite(nll)

@@ -53,6 +53,7 @@ NetworkParams = list[LayerParams]
 # Encoder Network: observations -> state belief logits
 # ---------------------------------------------------------------------------
 
+
 def init_encoder(
     key: jax.random.PRNGKey,
     obs_dim: int,
@@ -106,6 +107,7 @@ def encode(params: NetworkParams, obs: jnp.ndarray) -> jnp.ndarray:
 # ---------------------------------------------------------------------------
 # Transition Network: (state_beliefs, action_onehot) -> next_state logits
 # ---------------------------------------------------------------------------
+
 
 def init_transition(
     key: jax.random.PRNGKey,
@@ -166,6 +168,7 @@ def predict_transition(
 # ---------------------------------------------------------------------------
 # Deep Generative Model
 # ---------------------------------------------------------------------------
+
 
 class DeepGenerativeModel:
     """Wraps encoder and transition networks for Active Inference.
@@ -238,6 +241,7 @@ class DeepGenerativeModel:
 # ---------------------------------------------------------------------------
 # Deep Analytic NLL
 # ---------------------------------------------------------------------------
+
 
 def _deep_forward_step(
     carry: tuple[jnp.ndarray, jnp.ndarray],
@@ -322,8 +326,10 @@ def deep_analytic_nll(
 # Deep learning result and training loop
 # ---------------------------------------------------------------------------
 
+
 class DeepLearningResult(NamedTuple):
     """Result of deep model learning."""
+
     encoder_params: NetworkParams
     transition_params: NetworkParams
     loss_history: list[float]
@@ -375,17 +381,12 @@ def learn_deep_model(
     trans_params = init_transition(key2, num_states, num_actions, transition_hidden)
 
     def loss_fn(enc_p, trans_p):
-        return deep_analytic_nll(
-            enc_p, trans_p, D_jnp, obs_jnp, act_jnp, num_actions
-        )
+        return deep_analytic_nll(enc_p, trans_p, D_jnp, obs_jnp, act_jnp, num_actions)
 
     grad_fn = jax.grad(loss_fn, argnums=(0, 1))
 
     def _apply_grads(params, grads, lr):
-        return [
-            (w - lr * gw, b - lr * gb)
-            for (w, b), (gw, gb) in zip(params, grads)
-        ]
+        return [(w - lr * gw, b - lr * gb) for (w, b), (gw, gb) in zip(params, grads)]
 
     @jax.jit
     def sgd_step(enc_p, trans_p):
@@ -413,6 +414,7 @@ def learn_deep_model(
 # ---------------------------------------------------------------------------
 # Utility: extract approximate A matrix from encoder
 # ---------------------------------------------------------------------------
+
 
 def extract_A_matrix(
     encoder_params: NetworkParams,
@@ -443,6 +445,7 @@ def extract_A_matrix(
 # ---------------------------------------------------------------------------
 # Decoder Network: state_onehot -> observation distribution params
 # ---------------------------------------------------------------------------
+
 
 def init_decoder(
     key: jax.random.PRNGKey,
@@ -527,6 +530,7 @@ def decoder_log_likelihood(
 # ---------------------------------------------------------------------------
 # Gaussian Decoder: state_onehot -> (mean, log_var) for continuous obs
 # ---------------------------------------------------------------------------
+
 
 def init_gaussian_decoder(
     key: jax.random.PRNGKey,
@@ -620,6 +624,7 @@ def gaussian_log_likelihood(
 # Decoder Generative Model
 # ---------------------------------------------------------------------------
 
+
 class DecoderGenerativeModel:
     """Decoder-based deep generative model P(o|s).
 
@@ -655,9 +660,7 @@ class DecoderGenerativeModel:
         self.num_states = num_states
         self.num_actions = num_actions
 
-        self.decoder_params = init_decoder(
-            key1, num_states, decoder_hidden, obs_dim
-        )
+        self.decoder_params = init_decoder(key1, num_states, decoder_hidden, obs_dim)
         self.transition_params = init_transition(
             key2, num_states, num_actions, transition_hidden
         )
@@ -713,6 +716,7 @@ class DecoderGenerativeModel:
         Returns:
             Posterior Q(s|o), shape (num_states,). Normalized.
         """
+
         # Compute log P(o|s) for each state
         def log_lik_for_state(s_idx):
             return decoder_log_likelihood(decoder_params, obs, s_idx, num_states)
@@ -755,6 +759,7 @@ class DecoderGenerativeModel:
 # Decoder-based Analytic NLL
 # ---------------------------------------------------------------------------
 
+
 def _decoder_likelihood_vector(
     decoder_params: NetworkParams,
     obs: jnp.ndarray,
@@ -770,6 +775,7 @@ def _decoder_likelihood_vector(
     Returns:
         Likelihood vector, shape (num_states,), where entry s is P(o|s).
     """
+
     def log_lik_for_state(s_idx):
         return decoder_log_likelihood(decoder_params, obs, s_idx, num_states)
 
@@ -857,8 +863,12 @@ def decoder_analytic_nll(
 
     def scan_step(carry, x):
         return _decoder_forward_step(
-            carry, x, decoder_params, transition_params,
-            num_states, num_actions,
+            carry,
+            x,
+            decoder_params,
+            transition_params,
+            num_states,
+            num_actions,
         )
 
     remaining_obs = observations_raw[1:]
@@ -879,8 +889,10 @@ def decoder_analytic_nll(
 # Decoder learning result and training loop
 # ---------------------------------------------------------------------------
 
+
 class DecoderLearningResult(NamedTuple):
     """Result of decoder-based model learning."""
+
     decoder_params: NetworkParams
     transition_params: NetworkParams
     loss_history: list[float]
@@ -943,10 +955,7 @@ def learn_decoder_model(
     grad_fn = jax.grad(loss_fn, argnums=(0, 1))
 
     def _apply_grads(params, grads, lr):
-        return [
-            (w - lr * gw, b - lr * gb)
-            for (w, b), (gw, gb) in zip(params, grads)
-        ]
+        return [(w - lr * gw, b - lr * gb) for (w, b), (gw, gb) in zip(params, grads)]
 
     @jax.jit
     def sgd_step(dec_p, trans_p):

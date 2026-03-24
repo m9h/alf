@@ -10,7 +10,6 @@ HDDM reference parameters (approximate, from Wiecki et al. 2013):
 Data format: response (0=lower, 1=upper), rt (seconds), difficulty (easy/hard)
 """
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -22,7 +21,6 @@ from alf.ddm.wiener import (
     wiener_log_density_batch,
     ddm_nll,
     simulate_ddm,
-    DDMParams,
 )
 
 DATA_DIR = Path(__file__).parent / "data" / "ddm"
@@ -32,6 +30,7 @@ DATA_AVAILABLE = SIMPLE_CSV.exists()
 
 try:
     from alf.ddm.fitting import fit_ddm_mle
+
     HAS_FITTING = True
 except ImportError:
     HAS_FITTING = False
@@ -39,6 +38,7 @@ except ImportError:
 
 def load_simple_difficulty():
     import pandas as pd
+
     return pd.read_csv(SIMPLE_CSV)
 
 
@@ -76,7 +76,9 @@ def test_nll_finite_on_real_data():
     """Test total NLL is finite on HDDM data."""
     df = load_simple_difficulty()
     rt, choice = extract_ddm_arrays(df)
-    nll = ddm_nll(jnp.array(1.0), jnp.array(1.5), jnp.array(0.5), jnp.array(0.3), rt, choice)
+    nll = ddm_nll(
+        jnp.array(1.0), jnp.array(1.5), jnp.array(0.5), jnp.array(0.3), rt, choice
+    )
     assert jnp.isfinite(nll), f"NLL not finite: {nll}"
 
 
@@ -86,7 +88,8 @@ def test_nll_gradient_finite_on_real_data():
     df = load_simple_difficulty()
     rt, choice = extract_ddm_arrays(df)
     grads = jax.grad(ddm_nll, argnums=(0, 1, 2, 3))(
-        jnp.array(1.0), jnp.array(1.5), jnp.array(0.5), jnp.array(0.3), rt, choice)
+        jnp.array(1.0), jnp.array(1.5), jnp.array(0.5), jnp.array(0.3), rt, choice
+    )
     for i, name in enumerate(["v", "a", "w", "tau"]):
         assert jnp.isfinite(grads[i]), f"grad_{name} not finite"
 
@@ -138,8 +141,14 @@ def test_posterior_predictive_matches_data():
     df = load_simple_difficulty()
     rt, choice = extract_ddm_arrays(df)
     result = fit_ddm_mle(np.array(rt), np.array(choice), num_epochs=300)
-    sim = simulate_ddm(v=float(result.v), a=float(result.a),
-                       w=float(result.w), tau=float(result.tau), n_trials=1000, seed=42)
+    sim = simulate_ddm(
+        v=float(result.v),
+        a=float(result.a),
+        w=float(result.w),
+        tau=float(result.tau),
+        n_trials=1000,
+        seed=42,
+    )
     obs_mean_rt = float(jnp.mean(rt))
     sim_mean_rt = float(np.mean(sim.rt))
     assert 0.3 < sim_mean_rt / obs_mean_rt < 3.0

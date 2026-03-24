@@ -37,12 +37,10 @@ from alf.benchmarks.t_maze import (
     _build_C,
     _build_D,
     NUM_STATES,
-    NUM_OBS,
     NUM_ACTIONS,
     OBS_NULL,
     OBS_CUE_LEFT,
     OBS_REWARD,
-    ACT_STAY,
     ACT_CUE,
     ACT_LEFT,
     ACT_RIGHT,
@@ -52,6 +50,7 @@ from alf.benchmarks.t_maze import (
 # =========================================================================
 # Fixtures: simple 2-state model for analytical verification
 # =========================================================================
+
 
 def make_simple_model():
     """Create a simple 2-state, 2-obs model for analytical tests.
@@ -64,8 +63,7 @@ def make_simple_model():
     C = [0, 0] (no preferences)
     D = [0.5, 0.5] (uniform prior)
     """
-    A = np.array([[0.9, 0.2],
-                   [0.1, 0.8]])
+    A = np.array([[0.9, 0.2], [0.1, 0.8]])
     B = np.zeros((2, 2, 2))
     B[:, :, 0] = np.eye(2)
     B[:, :, 1] = np.eye(2)
@@ -77,6 +75,7 @@ def make_simple_model():
 # =========================================================================
 # Test 1: VFE is minimized at the true posterior
 # =========================================================================
+
 
 class TestVFEMinimizedAtTruePosterior:
     """VFE should be lowest when q(s) equals the exact Bayesian posterior."""
@@ -153,6 +152,7 @@ class TestVFEMinimizedAtTruePosterior:
 # Test 2: VFE at uniform q equals negative log evidence
 # =========================================================================
 
+
 class TestVFEUniformEqualsNegLogEvidence:
     """When q is uniform, VFE = -ln P(o) + ln(num_states) = -ln P(o) + H(q)."""
 
@@ -174,16 +174,21 @@ class TestVFEUniformEqualsNegLogEvidence:
         posterior_unnorm = A[obs, :] * D_uniform
         posterior = posterior_unnorm / posterior_unnorm.sum()
         eps = 1e-16
-        kl = np.sum(q_uniform * (
-            np.log(np.clip(q_uniform, eps, None))
-            - np.log(np.clip(posterior, eps, None))
-        ))
+        kl = np.sum(
+            q_uniform
+            * (
+                np.log(np.clip(q_uniform, eps, None))
+                - np.log(np.clip(posterior, eps, None))
+            )
+        )
 
         # F should equal -ln P(o) + KL(q || posterior)
         expected_F = neg_log_evidence + kl
         np.testing.assert_allclose(
-            F_uniform, expected_F, atol=1e-10,
-            err_msg="F should equal -ln P(o) + KL(q || posterior)"
+            F_uniform,
+            expected_F,
+            atol=1e-10,
+            err_msg="F should equal -ln P(o) + KL(q || posterior)",
         )
 
         # And F >= -ln P(o)
@@ -208,14 +213,17 @@ class TestVFEUniformEqualsNegLogEvidence:
         neg_log_evidence = -np.log(evidence)
 
         np.testing.assert_allclose(
-            F_true, neg_log_evidence, atol=1e-10,
-            err_msg="F at true posterior should equal -ln P(o)"
+            F_true,
+            neg_log_evidence,
+            atol=1e-10,
+            err_msg="F at true posterior should equal -ln P(o)",
         )
 
 
 # =========================================================================
 # Test 3: EFE decomposition -- pragmatic + epistemic = total G
 # =========================================================================
+
 
 class TestEFEDecomposition:
     """EFE should decompose cleanly: G = -pragmatic - epistemic."""
@@ -230,8 +238,10 @@ class TestEFEDecomposition:
             decomp = expected_free_energy_decomposed(A, B, C, beliefs, action)
             reconstructed = -decomp.pragmatic - decomp.epistemic
             np.testing.assert_allclose(
-                decomp.G_total, reconstructed, atol=1e-10,
-                err_msg=f"G = -pragmatic - epistemic failed for action {action}"
+                decomp.G_total,
+                reconstructed,
+                atol=1e-10,
+                err_msg=f"G = -pragmatic - epistemic failed for action {action}",
             )
 
     def test_decomposition_consistency_t_maze(self):
@@ -247,25 +257,26 @@ class TestEFEDecomposition:
             decomp = expected_free_energy_decomposed(A, B, C, beliefs, action)
             reconstructed = -decomp.pragmatic - decomp.epistemic
             np.testing.assert_allclose(
-                decomp.G_total, reconstructed, atol=1e-10,
-                err_msg=f"G decomposition failed for T-maze action {action}"
+                decomp.G_total,
+                reconstructed,
+                atol=1e-10,
+                err_msg=f"G decomposition failed for T-maze action {action}",
             )
 
     def test_return_type(self):
         """Should return an EFEDecomposition named tuple."""
         A, B, C, D = make_simple_model()
-        decomp = expected_free_energy_decomposed(
-            A, B, np.array([1.0, -1.0]), D, 0
-        )
+        decomp = expected_free_energy_decomposed(A, B, np.array([1.0, -1.0]), D, 0)
         assert isinstance(decomp, EFEDecomposition)
-        assert hasattr(decomp, 'G_total')
-        assert hasattr(decomp, 'pragmatic')
-        assert hasattr(decomp, 'epistemic')
+        assert hasattr(decomp, "G_total")
+        assert hasattr(decomp, "pragmatic")
+        assert hasattr(decomp, "epistemic")
 
 
 # =========================================================================
 # Test 4: Epistemic value is higher for ambiguous states (T-maze cue)
 # =========================================================================
+
 
 class TestEpistemicValue:
     """The go_cue action should have higher epistemic value than go_left/right."""
@@ -329,6 +340,7 @@ class TestEpistemicValue:
 # Test 5: JAX versions match numpy versions
 # =========================================================================
 
+
 class TestJAXMatchesNumpy:
     """JAX-native functions should produce identical results to numpy versions."""
 
@@ -337,17 +349,20 @@ class TestJAXMatchesNumpy:
         A, B, C, D = make_simple_model()
 
         for obs in range(2):
-            for q in [np.array([0.7, 0.3]),
-                      np.array([0.5, 0.5]),
-                      np.array([0.1, 0.9]),
-                      np.array([0.99, 0.01])]:
+            for q in [
+                np.array([0.7, 0.3]),
+                np.array([0.5, 0.5]),
+                np.array([0.1, 0.9]),
+                np.array([0.99, 0.01]),
+            ]:
                 F_np = variational_free_energy(q, A, D, obs)
-                F_jax = float(jax_variational_free_energy(
-                    jnp.array(q), jnp.array(A), jnp.array(D), jnp.array(obs)
-                ))
+                F_jax = float(
+                    jax_variational_free_energy(
+                        jnp.array(q), jnp.array(A), jnp.array(D), jnp.array(obs)
+                    )
+                )
                 np.testing.assert_allclose(
-                    F_np, F_jax, atol=1e-6,
-                    err_msg=f"VFE mismatch for obs={obs}, q={q}"
+                    F_np, F_jax, atol=1e-6, err_msg=f"VFE mismatch for obs={obs}, q={q}"
                 )
 
     def test_efe_decomposition_matches(self):
@@ -368,16 +383,22 @@ class TestJAXMatchesNumpy:
             )
 
             np.testing.assert_allclose(
-                decomp_np.G_total, float(G_jax), atol=1e-6,
-                err_msg=f"G_total mismatch for action {action}"
+                decomp_np.G_total,
+                float(G_jax),
+                atol=1e-6,
+                err_msg=f"G_total mismatch for action {action}",
             )
             np.testing.assert_allclose(
-                decomp_np.pragmatic, float(prag_jax), atol=1e-6,
-                err_msg=f"Pragmatic mismatch for action {action}"
+                decomp_np.pragmatic,
+                float(prag_jax),
+                atol=1e-6,
+                err_msg=f"Pragmatic mismatch for action {action}",
             )
             np.testing.assert_allclose(
-                decomp_np.epistemic, float(epist_jax), atol=1e-6,
-                err_msg=f"Epistemic mismatch for action {action}"
+                decomp_np.epistemic,
+                float(epist_jax),
+                atol=1e-6,
+                err_msg=f"Epistemic mismatch for action {action}",
             )
 
     def test_generalized_fe_matches(self):
@@ -389,14 +410,23 @@ class TestJAXMatchesNumpy:
 
         for policy in [np.array([0]), np.array([1]), np.array([0, 1])]:
             F_np = generalized_free_energy(q, A, B, C, D, obs, policy, gamma=1.0)
-            F_jax = float(jax_generalized_free_energy(
-                jnp.array(q), jnp.array(A), jnp.array(B),
-                jnp.array(C), jnp.array(D), jnp.array(obs),
-                jnp.array(policy), gamma=1.0
-            ))
+            F_jax = float(
+                jax_generalized_free_energy(
+                    jnp.array(q),
+                    jnp.array(A),
+                    jnp.array(B),
+                    jnp.array(C),
+                    jnp.array(D),
+                    jnp.array(obs),
+                    jnp.array(policy),
+                    gamma=1.0,
+                )
+            )
             np.testing.assert_allclose(
-                F_np, F_jax, atol=1e-5,
-                err_msg=f"Generalized FE mismatch for policy={policy}"
+                F_np,
+                F_jax,
+                atol=1e-5,
+                err_msg=f"Generalized FE mismatch for policy={policy}",
             )
 
     def test_t_maze_vfe_matches(self):
@@ -421,18 +451,20 @@ class TestJAXMatchesNumpy:
             q = q / q.sum()
             for obs in [OBS_NULL, OBS_CUE_LEFT, OBS_REWARD]:
                 F_np = variational_free_energy(q, A, D, obs)
-                F_jax = float(jax_variational_free_energy(
-                    jnp.array(q), jnp.array(A), jnp.array(D), jnp.array(obs)
-                ))
+                F_jax = float(
+                    jax_variational_free_energy(
+                        jnp.array(q), jnp.array(A), jnp.array(D), jnp.array(obs)
+                    )
+                )
                 np.testing.assert_allclose(
-                    F_np, F_jax, atol=1e-6,
-                    err_msg=f"T-maze VFE mismatch for obs={obs}"
+                    F_np, F_jax, atol=1e-6, err_msg=f"T-maze VFE mismatch for obs={obs}"
                 )
 
 
 # =========================================================================
 # Test 6: JIT compilation works
 # =========================================================================
+
 
 class TestJITCompilation:
     """All JAX-native functions should compile with jax.jit without error."""
@@ -457,8 +489,7 @@ class TestJITCompilation:
 
         efe_jit = jax.jit(jax_expected_free_energy_decomposed)
         G, prag, epist = efe_jit(
-            jnp.array(A), jnp.array(B), C,
-            jnp.array([0.6, 0.4]), jnp.array(0)
+            jnp.array(A), jnp.array(B), C, jnp.array([0.6, 0.4]), jnp.array(0)
         )
         assert jnp.isfinite(G)
         assert jnp.isfinite(prag)
@@ -475,9 +506,12 @@ class TestJITCompilation:
 
         F = compute(
             jnp.array([0.7, 0.3]),
-            jnp.array(A), jnp.array(B),
-            jnp.array([1.0, -1.0]), jnp.array(D),
-            jnp.array(0), jnp.array([0])
+            jnp.array(A),
+            jnp.array(B),
+            jnp.array([1.0, -1.0]),
+            jnp.array(D),
+            jnp.array(0),
+            jnp.array([0]),
         )
         assert jnp.isfinite(F)
 
@@ -498,8 +532,7 @@ class TestJITCompilation:
 
         efe_jit = jax.jit(jax_efe_all_actions)
         G_all, prag_all, epist_all = efe_jit(
-            jnp.array(A), jnp.array(B),
-            jnp.array([1.0, -1.0]), jnp.array([0.6, 0.4])
+            jnp.array(A), jnp.array(B), jnp.array([1.0, -1.0]), jnp.array([0.6, 0.4])
         )
         assert G_all.shape == (2,)
         assert prag_all.shape == (2,)
@@ -524,6 +557,7 @@ class TestJITCompilation:
 # Test 7: Generalized FE reduces to VFE when T=0
 # =========================================================================
 
+
 class TestGeneralizedFEReducesToVFE:
     """When there is no future policy, generalized FE should equal VFE."""
 
@@ -535,14 +569,14 @@ class TestGeneralizedFEReducesToVFE:
 
         F_vfe = variational_free_energy(q, A, D, obs)
         F_gen = generalized_free_energy(
-            q, A, B, np.zeros(2), D, obs,
-            policy=np.array([]),
-            gamma=1.0
+            q, A, B, np.zeros(2), D, obs, policy=np.array([]), gamma=1.0
         )
 
         np.testing.assert_allclose(
-            F_vfe, F_gen, atol=1e-10,
-            err_msg="Generalized FE with empty policy should equal VFE"
+            F_vfe,
+            F_gen,
+            atol=1e-10,
+            err_msg="Generalized FE with empty policy should equal VFE",
         )
 
     def test_gamma_zero(self):
@@ -554,14 +588,21 @@ class TestGeneralizedFEReducesToVFE:
 
         F_vfe = variational_free_energy(q, A, D, obs)
         F_gen = generalized_free_energy(
-            q, A, B, C, D, obs,
+            q,
+            A,
+            B,
+            C,
+            D,
+            obs,
             policy=np.array([0, 1]),  # non-trivial policy
-            gamma=0.0
+            gamma=0.0,
         )
 
         np.testing.assert_allclose(
-            F_vfe, F_gen, atol=1e-10,
-            err_msg="Generalized FE with gamma=0 should equal VFE"
+            F_vfe,
+            F_gen,
+            atol=1e-10,
+            err_msg="Generalized FE with gamma=0 should equal VFE",
         )
 
     def test_jax_empty_policy(self):
@@ -570,21 +611,28 @@ class TestGeneralizedFEReducesToVFE:
         q = jnp.array([0.7, 0.3])
         obs = jnp.array(0)
 
-        F_vfe = float(jax_variational_free_energy(
-            q, jnp.array(A), jnp.array(D), obs
-        ))
+        F_vfe = float(jax_variational_free_energy(q, jnp.array(A), jnp.array(D), obs))
 
         # For JAX version with scan, we need at least a length-0 policy
         # which won't enter the scan. Using a length-1 dummy with gamma=0.
-        F_gen = float(jax_generalized_free_energy(
-            q, jnp.array(A), jnp.array(B),
-            jnp.array([0.0, 0.0]), jnp.array(D),
-            obs, jnp.array([0]), gamma=0.0
-        ))
+        F_gen = float(
+            jax_generalized_free_energy(
+                q,
+                jnp.array(A),
+                jnp.array(B),
+                jnp.array([0.0, 0.0]),
+                jnp.array(D),
+                obs,
+                jnp.array([0]),
+                gamma=0.0,
+            )
+        )
 
         np.testing.assert_allclose(
-            F_vfe, F_gen, atol=1e-10,
-            err_msg="JAX generalized FE with gamma=0 should equal VFE"
+            F_vfe,
+            F_gen,
+            atol=1e-10,
+            err_msg="JAX generalized FE with gamma=0 should equal VFE",
         )
 
     def test_future_increases_generalized_fe(self):
@@ -596,7 +644,12 @@ class TestGeneralizedFEReducesToVFE:
 
         F_vfe = variational_free_energy(q, A, D, obs)
         F_gen = generalized_free_energy(
-            q, A, B, C_pref, D, obs,
+            q,
+            A,
+            B,
+            C_pref,
+            D,
+            obs,
             policy=np.array([0]),
             gamma=1.0,
         )
@@ -611,6 +664,7 @@ class TestGeneralizedFEReducesToVFE:
 # =========================================================================
 # Test 8: free_energy_from_beliefs wrapper
 # =========================================================================
+
 
 class TestFreeEnergyFromBeliefs:
     """Test the GenerativeModel wrapper function."""
@@ -627,8 +681,10 @@ class TestFreeEnergyFromBeliefs:
         F_direct = variational_free_energy(beliefs[0], A, D, observations[0])
 
         np.testing.assert_allclose(
-            F_wrapper, F_direct, atol=1e-10,
-            err_msg="Wrapper should match direct VFE computation"
+            F_wrapper,
+            F_direct,
+            atol=1e-10,
+            err_msg="Wrapper should match direct VFE computation",
         )
 
     def test_t_maze_model(self):
@@ -644,6 +700,7 @@ class TestFreeEnergyFromBeliefs:
 # =========================================================================
 # Test 9: T-maze specific tests
 # =========================================================================
+
 
 class TestTMazeEFE:
     """T-maze specific tests for EFE decomposition."""
@@ -680,12 +737,16 @@ class TestTMazeEFE:
         # With uniform beliefs, expected observations are symmetric
         # Pragmatic should be near 0 (reward and punishment cancel)
         np.testing.assert_allclose(
-            decomp_left.pragmatic, 0.0, atol=0.01,
-            err_msg="Go_left pragmatic should be ~0 with uniform beliefs"
+            decomp_left.pragmatic,
+            0.0,
+            atol=0.01,
+            err_msg="Go_left pragmatic should be ~0 with uniform beliefs",
         )
         np.testing.assert_allclose(
-            decomp_right.pragmatic, 0.0, atol=0.01,
-            err_msg="Go_right pragmatic should be ~0 with uniform beliefs"
+            decomp_right.pragmatic,
+            0.0,
+            atol=0.01,
+            err_msg="Go_right pragmatic should be ~0 with uniform beliefs",
         )
 
     def test_go_left_right_symmetric(self):
@@ -699,8 +760,10 @@ class TestTMazeEFE:
         decomp_right = expected_free_energy_decomposed(A, B, C, beliefs, ACT_RIGHT)
 
         np.testing.assert_allclose(
-            decomp_left.G_total, decomp_right.G_total, atol=1e-10,
-            err_msg="Go_left and go_right should have same G with uniform beliefs"
+            decomp_left.G_total,
+            decomp_right.G_total,
+            atol=1e-10,
+            err_msg="Go_left and go_right should have same G with uniform beliefs",
         )
 
 

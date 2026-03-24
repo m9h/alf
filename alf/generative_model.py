@@ -84,22 +84,20 @@ class GenerativeModel:
             else:
                 # All T-length action sequences
                 import itertools
+
                 seqs = list(itertools.product(range(na), repeat=self.T))
                 self.policies = np.array(seqs).reshape(-1, self.T, 1)
         else:
             # Multi-factor: policies are joint action sequences
             import itertools
-            action_combos = list(itertools.product(
-                *[range(na) for na in self.num_actions]
-            ))
+
+            action_combos = list(
+                itertools.product(*[range(na) for na in self.num_actions])
+            )
             if self.T == 1:
-                self.policies = np.array(action_combos).reshape(
-                    -1, 1, self.num_factors
-                )
+                self.policies = np.array(action_combos).reshape(-1, 1, self.num_factors)
             else:
-                time_combos = list(itertools.product(
-                    action_combos, repeat=self.T
-                ))
+                time_combos = list(itertools.product(action_combos, repeat=self.T))
                 self.policies = np.array(time_combos).reshape(
                     -1, self.T, self.num_factors
                 )

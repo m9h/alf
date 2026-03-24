@@ -7,11 +7,24 @@ remain in pgmax/aif).
 
 import numpy as np
 from alf.benchmarks.t_maze import (
-    build_t_maze_model, TMazeEnv, run_t_maze,
-    NUM_STATES, NUM_OBS, NUM_ACTIONS, ACTION_NAMES,
-    ACT_STAY, ACT_CUE, ACT_LEFT, ACT_RIGHT,
-    OBS_NULL, OBS_CUE_LEFT, OBS_CUE_RIGHT, OBS_REWARD, OBS_PUNISHMENT,
-    _build_A, _build_B, _build_C, _build_D,
+    build_t_maze_model,
+    TMazeEnv,
+    run_t_maze,
+    NUM_STATES,
+    NUM_OBS,
+    NUM_ACTIONS,
+    ACT_STAY,
+    ACT_CUE,
+    ACT_LEFT,
+    ACT_RIGHT,
+    OBS_NULL,
+    OBS_CUE_LEFT,
+    OBS_CUE_RIGHT,
+    OBS_REWARD,
+    OBS_PUNISHMENT,
+    _build_A,
+    _build_B,
+    _build_D,
 )
 
 
@@ -118,10 +131,12 @@ def test_analytic_efe():
     C = jnp.array(gm.C[0])
     b = jnp.array(gm.D[0])
 
-    G_analytic = np.array([
-        float(jax_compute_efe_analytic(A, B[:, :, a], C, b))
-        for a in range(NUM_ACTIONS)
-    ])
+    G_analytic = np.array(
+        [
+            float(jax_compute_efe_analytic(A, B[:, :, a], C, b))
+            for a in range(NUM_ACTIONS)
+        ]
+    )
 
     assert all(np.isfinite(G_analytic)), "Analytic EFE should be finite"
     assert G_analytic[ACT_CUE] != G_analytic[ACT_STAY], (
@@ -195,11 +210,15 @@ def test_sequential_epistemic_drive():
 
     # Symmetry checks
     np.testing.assert_allclose(
-        g_cue_left, g_cue_right, atol=1e-10,
+        g_cue_left,
+        g_cue_right,
+        atol=1e-10,
         err_msg="Cue-then-left and cue-then-right should be symmetric",
     )
     np.testing.assert_allclose(
-        g_left, g_right, atol=1e-10,
+        g_left,
+        g_right,
+        atol=1e-10,
         err_msg="Direct left and direct right should be symmetric",
     )
 
@@ -221,4 +240,5 @@ def test_sequential_epistemic_drive():
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "--tb=short"])

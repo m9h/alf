@@ -82,8 +82,7 @@ def run_battery(
     for task_name in tasks:
         if task_name not in _RUN_FUNCTIONS:
             raise ValueError(
-                f"Unknown task '{task_name}'. "
-                f"Available: {list(_RUN_FUNCTIONS.keys())}"
+                f"Unknown task '{task_name}'. Available: {list(_RUN_FUNCTIONS.keys())}"
             )
 
     battery_results = {}
@@ -91,9 +90,9 @@ def run_battery(
     for task_name in tasks:
         if verbose:
             desc = TASK_DESCRIPTIONS.get(task_name, task_name)
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(f"Running: {desc}")
-            print(f"{'='*60}")
+            print(f"{'=' * 60}")
 
         run_fn = _RUN_FUNCTIONS[task_name]
         results = run_fn(
@@ -105,9 +104,9 @@ def run_battery(
         battery_results[task_name] = results
 
     if verbose:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("BATTERY SUMMARY")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         for task_name, results in battery_results.items():
             acc = results.get("accuracy", results.get("reward_rate", 0.0))
             mr = results.get("mean_reward", 0.0)

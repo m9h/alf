@@ -58,8 +58,14 @@ NUM_ACTIONS = 4
 
 ACTION_NAMES = ["stay", "go_cue", "go_left", "go_right"]
 STATE_NAMES = [
-    "center/L", "center/R", "cue/L", "cue/R",
-    "left/L", "left/R", "right/L", "right/R",
+    "center/L",
+    "center/R",
+    "cue/L",
+    "cue/R",
+    "left/L",
+    "left/R",
+    "right/L",
+    "right/R",
 ]
 OBS_NAMES = ["null", "cue_left", "cue_right", "reward", "punishment"]
 
@@ -254,8 +260,9 @@ def run_t_maze(
 
     for trial in range(num_trials):
         reward_side = "left" if rng.random() < 0.5 else "right"
-        env = TMazeEnv(reward_side=reward_side, cue_reliability=cue_reliability,
-                       seed=seed + trial)
+        env = TMazeEnv(
+            reward_side=reward_side, cue_reliability=cue_reliability, seed=seed + trial
+        )
 
         agent.reset()
         obs = env.reset()
@@ -286,10 +293,18 @@ def run_t_maze(
         results.append(trial_info)
 
         if verbose:
-            status = "REWARD" if total_reward > 0 else "PUNISH" if total_reward < 0 else "NONE"
-            print(f"  Trial {trial:2d}: {reward_side:5s} | "
-                  f"{' -> '.join(actions_taken):20s} | "
-                  f"cue={'Y' if visited_cue else 'N'} | {status}")
+            status = (
+                "REWARD"
+                if total_reward > 0
+                else "PUNISH"
+                if total_reward < 0
+                else "NONE"
+            )
+            print(
+                f"  Trial {trial:2d}: {reward_side:5s} | "
+                f"{' -> '.join(actions_taken):20s} | "
+                f"cue={'Y' if visited_cue else 'N'} | {status}"
+            )
 
     rewards = [r["reward"] for r in results]
     cue_visits = [r["visited_cue"] for r in results]

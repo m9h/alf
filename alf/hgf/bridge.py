@@ -15,7 +15,7 @@ References:
         Inference. Journal of Mathematical Psychology.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 import jax
 import jax.numpy as jnp
@@ -34,6 +34,7 @@ from alf.hgf.updates import (
 # ---------------------------------------------------------------------------
 # Discretization utilities
 # ---------------------------------------------------------------------------
+
 
 def discretize_belief(
     mu: jnp.ndarray,
@@ -90,17 +91,20 @@ def hgf_to_categorical(
         Categorical distribution over states, shape (num_states,).
     """
     interior = jnp.linspace(state_range[0], state_range[1], num_states - 1)
-    bin_edges = jnp.concatenate([
-        jnp.array([-jnp.inf]),
-        interior,
-        jnp.array([jnp.inf]),
-    ])
+    bin_edges = jnp.concatenate(
+        [
+            jnp.array([-jnp.inf]),
+            interior,
+            jnp.array([jnp.inf]),
+        ]
+    )
     return discretize_belief(mu, pi, bin_edges)
 
 
 # ---------------------------------------------------------------------------
 # Hybrid agent: HGF perception + alf action selection
 # ---------------------------------------------------------------------------
+
 
 class HGFPerceptualAgent:
     """Agent using HGF perception and alf policy selection.
@@ -175,8 +179,10 @@ class HGFPerceptualAgent:
         # 1. HGF perceptual update
         if self.is_binary:
             new_mu_2, new_pi_2, surprise = binary_hgf_update(
-                jnp.array(self.mu_2), jnp.array(self.pi_2),
-                u, self.hgf_params.omega_2,
+                jnp.array(self.mu_2),
+                jnp.array(self.pi_2),
+                u,
+                self.hgf_params.omega_2,
             )
             self.mu_2 = float(new_mu_2)
             self.pi_2 = float(new_pi_2)
@@ -185,18 +191,29 @@ class HGFPerceptualAgent:
 
             # Discretize level 2 belief for action selection
             beliefs = hgf_to_categorical(
-                new_mu_2, new_pi_2,
-                self.num_states, self.state_range,
+                new_mu_2,
+                new_pi_2,
+                self.num_states,
+                self.state_range,
             )
         else:
             p = self.hgf_params
-            (new_mu_1, new_pi_1, new_mu_2, new_pi_2,
-             new_mu_3, new_pi_3, surprise) = continuous_hgf_update(
-                jnp.array(self.mu_1), jnp.array(self.pi_1),
-                jnp.array(self.mu_2), jnp.array(self.pi_2),
-                jnp.array(self.mu_3), jnp.array(self.pi_3),
-                u, p.omega_1, p.omega_2,
-                p.kappa_1, p.kappa_2, p.theta, p.pi_u,
+            (new_mu_1, new_pi_1, new_mu_2, new_pi_2, new_mu_3, new_pi_3, surprise) = (
+                continuous_hgf_update(
+                    jnp.array(self.mu_1),
+                    jnp.array(self.pi_1),
+                    jnp.array(self.mu_2),
+                    jnp.array(self.pi_2),
+                    jnp.array(self.mu_3),
+                    jnp.array(self.pi_3),
+                    u,
+                    p.omega_1,
+                    p.omega_2,
+                    p.kappa_1,
+                    p.kappa_2,
+                    p.theta,
+                    p.pi_u,
+                )
             )
             self.mu_1 = float(new_mu_1)
             self.pi_1 = float(new_pi_1)
@@ -209,8 +226,10 @@ class HGFPerceptualAgent:
 
             # Discretize level 1 belief for action selection
             beliefs = hgf_to_categorical(
-                new_mu_1, new_pi_1,
-                self.num_states, self.state_range,
+                new_mu_1,
+                new_pi_1,
+                self.num_states,
+                self.state_range,
             )
 
         beliefs_np = np.array(beliefs)
@@ -224,14 +243,20 @@ class HGFPerceptualAgent:
         G = np.zeros(num_actions)
         for a in range(num_actions):
             decomp = expected_free_energy_decomposed(
-                self.gm.A[0], self.gm.B[0], self.gm.C[0],
-                beliefs_np, a,
+                self.gm.A[0],
+                self.gm.B[0],
+                self.gm.C[0],
+                beliefs_np,
+                a,
             )
             G[a] = decomp.G_total
 
         # 3. Action selection
         action, policy_probs = alf_policy.select_action(
-            G, self.E[:num_actions], self.gamma, rng=self.rng,
+            G,
+            self.E[:num_actions],
+            self.gamma,
+            rng=self.rng,
         )
         self.action_history.append(action)
 

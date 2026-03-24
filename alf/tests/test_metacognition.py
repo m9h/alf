@@ -22,6 +22,7 @@ from alf.metacognition import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def generate_sdt_data(
     d_prime: float = 1.5,
     c: float = 0.0,
@@ -59,8 +60,12 @@ def generate_sdt_data(
     internal_S2 = rng.normal(d_prime / 2.0, 1.0, n_s2)
 
     # Bin responses using criteria
-    nR_S1 = np.histogram(internal_S1, bins=np.concatenate([[-np.inf], criteria, [np.inf]]))[0]
-    nR_S2 = np.histogram(internal_S2, bins=np.concatenate([[-np.inf], criteria, [np.inf]]))[0]
+    nR_S1 = np.histogram(
+        internal_S1, bins=np.concatenate([[-np.inf], criteria, [np.inf]])
+    )[0]
+    nR_S2 = np.histogram(
+        internal_S2, bins=np.concatenate([[-np.inf], criteria, [np.inf]])
+    )[0]
 
     return nR_S1.astype(float), nR_S2.astype(float)
 
@@ -68,6 +73,7 @@ def generate_sdt_data(
 # ---------------------------------------------------------------------------
 # Type 1 SDT tests
 # ---------------------------------------------------------------------------
+
 
 def test_sdt_type1_perfect_observer():
     """Test d' for a near-perfect observer."""
@@ -113,6 +119,7 @@ def test_compute_type1_from_counts():
 # Meta-d' estimation tests
 # ---------------------------------------------------------------------------
 
+
 def test_meta_d_mle_perfect_metacognition():
     """Test meta-d' for data with perfect metacognition (meta-d' ~ d')."""
     nR_S1, nR_S2 = generate_sdt_data(
@@ -145,6 +152,7 @@ def test_meta_d_mle_returns_valid():
 # ---------------------------------------------------------------------------
 # Precision bridge tests
 # ---------------------------------------------------------------------------
+
 
 def test_m_ratio_to_gamma_perfect():
     """Test that m_ratio=1 maps to base_gamma."""
@@ -209,4 +217,5 @@ def test_update_gamma_from_confidence_calibrated():
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "--tb=short"])

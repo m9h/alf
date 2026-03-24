@@ -7,25 +7,32 @@ import jax.numpy as jnp
 from alf.generative_model import GenerativeModel
 from alf.jax_core import softmax
 from alf.jax_native import (
-    jax_select_action, jax_update_habits,
-    jax_update_precision, jax_compute_efe_analytic,
-    jax_evaluate_all_actions, BatchAgent,
+    jax_select_action,
+    jax_update_habits,
+    jax_evaluate_all_actions,
+    BatchAgent,
 )
 from alf import policy as np_policy
 
 
 def build_simple_model():
     """Build a minimal model for testing."""
-    A = [np.array([
-        [0.9, 0.1],
-        [0.1, 0.9],
-    ])]
-    B = [np.array([
-        [[0.9, 0.1],
-         [0.1, 0.9]],
-        [[0.1, 0.9],
-         [0.9, 0.1]],
-    ]).transpose(1, 2, 0)]
+    A = [
+        np.array(
+            [
+                [0.9, 0.1],
+                [0.1, 0.9],
+            ]
+        )
+    ]
+    B = [
+        np.array(
+            [
+                [[0.9, 0.1], [0.1, 0.9]],
+                [[0.1, 0.9], [0.9, 0.1]],
+            ]
+        ).transpose(1, 2, 0)
+    ]
     C = [np.array([2.0, -2.0])]
     D = [np.array([0.5, 0.5])]
     return GenerativeModel(A=A, B=B, C=C, D=D, T=1)
@@ -84,7 +91,9 @@ def test_analytic_efe():
     G = jax_evaluate_all_actions(A, B, C, beliefs)
 
     # When believing state 0 (preferred), stay should be better
-    assert float(G[0]) < float(G[1]), "Stay should have lower EFE when in preferred state"
+    assert float(G[0]) < float(G[1]), (
+        "Stay should have lower EFE when in preferred state"
+    )
 
 
 def test_analytic_efe_jit():
@@ -103,12 +112,14 @@ def test_analytic_efe_jit():
 def test_vmap_select_action():
     """Test vmap over a batch of agents."""
     batch_size = 4
-    G_batch = jnp.array([
-        [-1.0, 0.5],
-        [0.5, -1.0],
-        [-0.5, -0.5],
-        [-2.0, 1.0],
-    ])
+    G_batch = jnp.array(
+        [
+            [-1.0, 0.5],
+            [0.5, -1.0],
+            [-0.5, -0.5],
+            [-2.0, 1.0],
+        ]
+    )
     E_batch = jnp.ones((batch_size, 2)) * 0.5
     keys = jax.random.split(jax.random.PRNGKey(42), batch_size)
 
@@ -161,4 +172,5 @@ def test_batch_agent_learning():
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "--tb=short"])

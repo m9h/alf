@@ -31,18 +31,25 @@ from alf.learning import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def build_simple_model():
     """Build the same 2-state, 2-obs, 2-action model."""
-    A = [np.array([
-        [0.9, 0.1],  # P(o=0 | s=0)=0.9, P(o=0 | s=1)=0.1
-        [0.1, 0.9],  # P(o=1 | s=0)=0.1, P(o=1 | s=1)=0.9
-    ])]
-    B = [np.array([
-        [[0.9, 0.1],
-         [0.1, 0.9]],
-        [[0.1, 0.9],
-         [0.9, 0.1]],
-    ]).transpose(1, 2, 0)]
+    A = [
+        np.array(
+            [
+                [0.9, 0.1],  # P(o=0 | s=0)=0.9, P(o=0 | s=1)=0.1
+                [0.1, 0.9],  # P(o=1 | s=0)=0.1, P(o=1 | s=1)=0.9
+            ]
+        )
+    ]
+    B = [
+        np.array(
+            [
+                [[0.9, 0.1], [0.1, 0.9]],
+                [[0.1, 0.9], [0.9, 0.1]],
+            ]
+        ).transpose(1, 2, 0)
+    ]
     C = [np.array([2.0, -2.0])]
     D = [np.array([0.5, 0.5])]
     return GenerativeModel(A=A, B=B, C=C, D=D, T=1)
@@ -50,23 +57,29 @@ def build_simple_model():
 
 def build_distinctive_model():
     """Build a 3-state, 3-obs, 2-action model with distinctive parameters."""
-    A = np.array([
-        [0.8, 0.1, 0.1],
-        [0.1, 0.8, 0.1],
-        [0.1, 0.1, 0.8],
-    ])
+    A = np.array(
+        [
+            [0.8, 0.1, 0.1],
+            [0.1, 0.8, 0.1],
+            [0.1, 0.1, 0.8],
+        ]
+    )
     # Action 0: rotate states forward (0->1->2->0)
-    B_a0 = np.array([
-        [0.1, 0.1, 0.8],
-        [0.8, 0.1, 0.1],
-        [0.1, 0.8, 0.1],
-    ])
+    B_a0 = np.array(
+        [
+            [0.1, 0.1, 0.8],
+            [0.8, 0.1, 0.1],
+            [0.1, 0.8, 0.1],
+        ]
+    )
     # Action 1: stay
-    B_a1 = np.array([
-        [0.8, 0.1, 0.1],
-        [0.1, 0.8, 0.1],
-        [0.1, 0.1, 0.8],
-    ])
+    B_a1 = np.array(
+        [
+            [0.8, 0.1, 0.1],
+            [0.1, 0.8, 0.1],
+            [0.1, 0.1, 0.8],
+        ]
+    )
     B = np.stack([B_a0, B_a1], axis=-1)  # (3, 3, 2)
     D = np.array([1.0 / 3, 1.0 / 3, 1.0 / 3])
     return A, B, D
@@ -76,12 +89,17 @@ def build_distinctive_model():
 # Tests
 # ---------------------------------------------------------------------------
 
+
 def test_params_to_A_valid():
     """Test that params_to_A produces a valid probability matrix."""
-    log_A = [jnp.array([
-        [1.0, -1.0],
-        [-0.5, 2.0],
-    ])]
+    log_A = [
+        jnp.array(
+            [
+                [1.0, -1.0],
+                [-0.5, 2.0],
+            ]
+        )
+    ]
 
     A_list = params_to_A(log_A)
     A = A_list[0]
@@ -91,19 +109,20 @@ def test_params_to_A_valid():
 
     col_sums = jnp.sum(A, axis=0)
     np.testing.assert_allclose(
-        np.array(col_sums), np.ones(2), atol=1e-6,
-        err_msg="Columns of A don't sum to 1"
+        np.array(col_sums), np.ones(2), atol=1e-6, err_msg="Columns of A don't sum to 1"
     )
 
 
 def test_params_to_B_valid():
     """Test that params_to_B produces a valid transition matrix."""
-    log_B = [jnp.array([
-        [[0.5, -0.5],
-         [-1.0, 1.0]],
-        [[-0.5, 0.5],
-         [1.0, -1.0]],
-    ])]
+    log_B = [
+        jnp.array(
+            [
+                [[0.5, -0.5], [-1.0, 1.0]],
+                [[-0.5, 0.5], [1.0, -1.0]],
+            ]
+        )
+    ]
 
     B_list = params_to_B(log_B)
     B = B_list[0]
@@ -114,8 +133,10 @@ def test_params_to_B_valid():
     for a in range(2):
         col_sums = jnp.sum(B[:, :, a], axis=0)
         np.testing.assert_allclose(
-            np.array(col_sums), np.ones(2), atol=1e-6,
-            err_msg=f"Columns of B[:,:,{a}] don't sum to 1"
+            np.array(col_sums),
+            np.ones(2),
+            atol=1e-6,
+            err_msg=f"Columns of B[:,:,{a}] don't sum to 1",
         )
 
 
@@ -127,7 +148,9 @@ def test_params_to_A_zeros_gives_uniform():
 
     expected = 1.0 / num_obs
     np.testing.assert_allclose(
-        np.array(A), np.full((num_obs, num_states), expected), atol=1e-6,
+        np.array(A),
+        np.full((num_obs, num_states), expected),
+        atol=1e-6,
     )
 
 
@@ -140,12 +163,16 @@ def test_from_model_roundtrip():
     B_recovered = params_to_B(lgm.params.log_B_params)
 
     np.testing.assert_allclose(
-        np.array(A_recovered[0]), gm.A[0], atol=1e-4,
-        err_msg="A matrix not recovered from log-params"
+        np.array(A_recovered[0]),
+        gm.A[0],
+        atol=1e-4,
+        err_msg="A matrix not recovered from log-params",
     )
     np.testing.assert_allclose(
-        np.array(B_recovered[0]), gm.B[0], atol=1e-4,
-        err_msg="B matrix not recovered from log-params"
+        np.array(B_recovered[0]),
+        gm.B[0],
+        atol=1e-4,
+        err_msg="B matrix not recovered from log-params",
     )
 
 
@@ -223,16 +250,14 @@ def test_nll_prefers_true_model():
     # NLL with true parameters
     log_A_true = jnp.log(jnp.clip(jnp.array(gm.A[0]), 1e-16))
     log_B_true = jnp.log(jnp.clip(jnp.array(gm.B[0]), 1e-16))
-    nll_true = float(analytic_nll_single(
-        log_A_true, log_B_true, D, obs_jnp, acts_jnp
-    ))
+    nll_true = float(analytic_nll_single(log_A_true, log_B_true, D, obs_jnp, acts_jnp))
 
     # NLL with random (uniform) parameters
     log_A_random = jnp.zeros((2, 2))
     log_B_random = jnp.zeros((2, 2, 2))
-    nll_random = float(analytic_nll_single(
-        log_A_random, log_B_random, D, obs_jnp, acts_jnp
-    ))
+    nll_random = float(
+        analytic_nll_single(log_A_random, log_B_random, D, obs_jnp, acts_jnp)
+    )
 
     assert nll_true < nll_random, (
         f"True model should have lower NLL: {nll_true:.4f} vs {nll_random:.4f}"
@@ -254,6 +279,7 @@ def test_generate_data():
 def _best_permutation_error(learned, true, axis=1):
     """Compute min error over state permutations (handles label switching)."""
     from itertools import permutations
+
     n = true.shape[axis]
     best_error = np.inf
     best_perm = None
@@ -357,7 +383,7 @@ def test_learn_model_3state():
     learned_A_perm = learned_A[:, best_perm]
     for s in range(3):
         assert learned_A_perm[s, s] > 0.4, (
-            f"A_perm[{s},{s}] should be dominant: {learned_A_perm[s,s]:.3f}"
+            f"A_perm[{s},{s}] should be dominant: {learned_A_perm[s, s]:.3f}"
         )
 
 
@@ -423,12 +449,13 @@ def test_compute_observation_log_likelihood():
     obs = jnp.array([0, 0, 1, 0], dtype=jnp.int32)
     acts = jnp.array([0, 1, 0, 0], dtype=jnp.int32)
 
-    ll = compute_observation_log_likelihood_analytic(
-        lgm.params, lgm.D, obs, acts
-    )
+    ll = compute_observation_log_likelihood_analytic(lgm.params, lgm.D, obs, acts)
     nll = analytic_nll(
-        lgm.params.log_A_params, lgm.params.log_B_params,
-        lgm.D, obs, acts,
+        lgm.params.log_A_params,
+        lgm.params.log_B_params,
+        lgm.D,
+        obs,
+        acts,
     )
 
     np.testing.assert_allclose(float(ll), -float(nll), atol=1e-6)
@@ -460,23 +487,24 @@ def test_gradient_descent_direction():
     log_A_new = log_A - lr * grad_A
     log_B_new = log_B - lr * grad_B
 
-    nll_after = float(analytic_nll_single(
-        log_A_new, log_B_new, D, obs_jnp, acts_jnp
-    ))
+    nll_after = float(analytic_nll_single(log_A_new, log_B_new, D, obs_jnp, acts_jnp))
 
     assert nll_after < nll_before, (
-        f"NLL should decrease after gradient step: "
-        f"{nll_before:.4f} -> {nll_after:.4f}"
+        f"NLL should decrease after gradient step: {nll_before:.4f} -> {nll_after:.4f}"
     )
 
 
 def test_params_to_matrices():
     """Test the combined conversion function."""
     log_A = [jnp.array([[1.0, -1.0], [-1.0, 1.0]])]
-    log_B = [jnp.array([
-        [[0.5, -0.5], [-1.0, 1.0]],
-        [[-0.5, 0.5], [1.0, -1.0]],
-    ])]
+    log_B = [
+        jnp.array(
+            [
+                [[0.5, -0.5], [-1.0, 1.0]],
+                [[-0.5, 0.5], [1.0, -1.0]],
+            ]
+        )
+    ]
     params = LearnableParams(log_A_params=log_A, log_B_params=log_B)
 
     A_list, B_list = params_to_matrices(params)
@@ -493,4 +521,5 @@ def test_params_to_matrices():
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "--tb=short"])

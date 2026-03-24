@@ -40,6 +40,7 @@ from alf.hgf.updates import HGFResult
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 class HGFNode(NamedTuple):
     """One node in a generalized HGF graph.
 
@@ -51,6 +52,7 @@ class HGFNode(NamedTuple):
         omega: Tonic log-volatility for this node (scalar).
         kappa: Coupling strengths to each parent, shape (len(parent_ids),).
     """
+
     node_id: int
     parent_ids: tuple[int, ...]
     coupling_types: tuple[int, ...]
@@ -159,8 +161,15 @@ def _hgf_graph_flatten(graph: HGFGraph):
 
 def _hgf_graph_unflatten(aux_data, children):
     """Reconstruct HGFGraph from flattened form."""
-    (n_nodes, input_node_ids, node_parent_ids, node_coupling_types,
-     has_vol_parent, is_binary, kappa_structure) = aux_data
+    (
+        n_nodes,
+        input_node_ids,
+        node_parent_ids,
+        node_coupling_types,
+        has_vol_parent,
+        is_binary,
+        kappa_structure,
+    ) = aux_data
 
     omegas = children[0]
     tonic_drift = children[1]
@@ -171,7 +180,7 @@ def _hgf_graph_unflatten(aux_data, children):
     kappas = []
     idx = 0
     for n_k in kappa_structure:
-        node_kappas = tuple(flat_kappas[idx:idx + n_k])
+        node_kappas = tuple(flat_kappas[idx : idx + n_k])
         kappas.append(node_kappas)
         idx += n_k
 
@@ -190,13 +199,16 @@ def _hgf_graph_unflatten(aux_data, children):
 
 
 jax.tree_util.register_pytree_node(
-    HGFGraph, _hgf_graph_flatten, _hgf_graph_unflatten,
+    HGFGraph,
+    _hgf_graph_flatten,
+    _hgf_graph_unflatten,
 )
 
 
 # ---------------------------------------------------------------------------
 # Graph construction helpers
 # ---------------------------------------------------------------------------
+
 
 def build_graph(
     nodes: list[HGFNode],
@@ -240,8 +252,9 @@ def build_graph(
         has_vol_list.append(any(ct == 0 for ct in node.coupling_types))
 
         # Store kappas as tuple of JAX scalars
-        kappas_node = tuple(jnp.array(float(node.kappa[j]))
-                            for j in range(len(node.parent_ids)))
+        kappas_node = tuple(
+            jnp.array(float(node.kappa[j])) for j in range(len(node.parent_ids))
+        )
         kappas_list.append(kappas_node)
 
     return HGFGraph(
@@ -261,6 +274,7 @@ def build_graph(
 # ---------------------------------------------------------------------------
 # Single-trial update
 # ---------------------------------------------------------------------------
+
 
 def graph_hgf_update(
     mus: jnp.ndarray,
@@ -311,9 +325,7 @@ def graph_hgf_update(
                 ct = ctypes[j]
                 kappa_ij = graph.kappas[i][j]
                 if ct == 0:  # volatility coupling
-                    vol_contribution = jnp.exp(
-                        kappa_ij * mus[pid] + graph.omegas[i]
-                    )
+                    vol_contribution = jnp.exp(kappa_ij * mus[pid] + graph.omegas[i])
                     v_i = v_i + vol_contribution
 
             # If no volatility parent, use tonic volatility only
@@ -340,9 +352,7 @@ def graph_hgf_update(
         delta_1 = observation - hat_mu_1
         info_gain = hat_mu_1 * (1.0 - hat_mu_1)
         new_pi_input = hat_pis[input_id] + info_gain
-        new_mu_input = (
-            hat_mus[input_id] + delta_1 / jnp.clip(new_pi_input, eps)
-        )
+        new_mu_input = hat_mus[input_id] + delta_1 / jnp.clip(new_pi_input, eps)
 
         new_mus = new_mus.at[input_id].set(new_mu_input)
         new_pis = new_pis.at[input_id].set(new_pi_input)
@@ -357,17 +367,13 @@ def graph_hgf_update(
         delta_1 = observation - hat_mus[input_id]
         new_pi_input = hat_pis[input_id] + graph.pi_u
         new_sigma_input = 1.0 / jnp.clip(new_pi_input, eps)
-        new_mu_input = (
-            hat_mus[input_id] + new_sigma_input * graph.pi_u * delta_1
-        )
+        new_mu_input = hat_mus[input_id] + new_sigma_input * graph.pi_u * delta_1
 
         new_mus = new_mus.at[input_id].set(new_mu_input)
         new_pis = new_pis.at[input_id].set(new_pi_input)
 
         total_var = 1.0 / jnp.clip(graph.pi_u, eps) + hat_sigmas[input_id]
-        surprise = 0.5 * (
-            jnp.log(2.0 * jnp.pi * total_var) + delta_1 ** 2 / total_var
-        )
+        surprise = 0.5 * (jnp.log(2.0 * jnp.pi * total_var) + delta_1**2 / total_var)
 
     # Propagate updates bottom-up through the graph.
     # Process nodes in order from input toward top levels.
@@ -390,14 +396,14 @@ def graph_hgf_update(
 
             if ct == 0:
                 # --- Volatility coupling update ---
-                vope_i = hat_pis[i] * (new_sigma_i + delta_mu_i ** 2) - 1.0
+                vope_i = hat_pis[i] * (new_sigma_i + delta_mu_i**2) - 1.0
                 w_i = kappa_ij * vs[i] / jnp.clip(hat_sigmas[i], eps)
 
-                pi_update = 0.5 * w_i ** 2 * (1.0 + vope_i)
+                pi_update = 0.5 * w_i**2 * (1.0 + vope_i)
                 mu_numer = 0.5 * w_i * vope_i
             else:
                 # --- Value coupling update ---
-                pi_update = kappa_ij ** 2 * hat_pis[i]
+                pi_update = kappa_ij**2 * hat_pis[i]
                 mu_numer = kappa_ij * hat_pis[i] * delta_mu_i
 
             updated_pi = new_pis[pid] + pi_update
@@ -413,6 +419,7 @@ def graph_hgf_update(
 # ---------------------------------------------------------------------------
 # Sequence processing
 # ---------------------------------------------------------------------------
+
 
 def graph_hgf(
     observations: jnp.ndarray,
@@ -432,15 +439,14 @@ def graph_hgf(
         HGFResult with mu shape (T, n_nodes), pi shape (T, n_nodes),
         surprise shape (T,).
     """
+
     def scan_step(carry, obs):
         mus, pis = carry
         new_mus, new_pis, surprise = graph_hgf_update(mus, pis, obs, graph)
         return (new_mus, new_pis), (new_mus, new_pis, surprise)
 
     init_carry = (initial_mus, initial_pis)
-    _, (mu_traj, pi_traj, surprises) = jax.lax.scan(
-        scan_step, init_carry, observations
-    )
+    _, (mu_traj, pi_traj, surprises) = jax.lax.scan(scan_step, init_carry, observations)
 
     return HGFResult(mu=mu_traj, pi=pi_traj, surprise=surprises)
 
@@ -469,6 +475,7 @@ def graph_hgf_surprise(
 # ---------------------------------------------------------------------------
 # Standard graph constructors
 # ---------------------------------------------------------------------------
+
 
 def make_standard_3level(
     omega_1: float = -3.0,
@@ -543,11 +550,13 @@ def make_standard_3level(
     )
 
     initial_mus = jnp.array([mu_1_0, mu_2_0, mu_3_0])
-    initial_pis = jnp.array([
-        1.0 / jnp.clip(jnp.array(sigma_1_0), eps),
-        1.0 / jnp.clip(jnp.array(sigma_2_0), eps),
-        1.0 / jnp.clip(jnp.array(sigma_3_0), eps),
-    ])
+    initial_pis = jnp.array(
+        [
+            1.0 / jnp.clip(jnp.array(sigma_1_0), eps),
+            1.0 / jnp.clip(jnp.array(sigma_2_0), eps),
+            1.0 / jnp.clip(jnp.array(sigma_3_0), eps),
+        ]
+    )
 
     return graph, initial_mus, initial_pis
 

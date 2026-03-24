@@ -16,18 +16,11 @@ from alf.benchmarks.t_maze import (
     build_t_maze_model,
     TMazeEnv,
     ACT_CUE,
-    ACT_LEFT,
-    ACT_RIGHT,
-    OBS_NULL,
-    OBS_REWARD,
-    OBS_PUNISHMENT,
-    ACTION_NAMES,
 )
 from alf.agent import AnalyticAgent
 from alf.generative_model import GenerativeModel
 from alf.metacognition import (
     EFEMonitor,
-    EFERecord,
     MetacognitiveAgent,
     PopulationMetacognition,
 )
@@ -37,14 +30,18 @@ from alf.metacognition import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_simple_model() -> GenerativeModel:
     """Create a minimal 2-state, 2-obs, 2-action model for unit tests."""
-    A = np.array([[0.9, 0.1],
-                  [0.1, 0.9]])
+    A = np.array([[0.9, 0.1], [0.1, 0.9]])
     B = np.zeros((2, 2, 2))
-    B[:, :, 0] = np.eye(2)           # action 0: stay
-    B[:, :, 1] = np.array([[0, 1],   # action 1: flip
-                            [1, 0]])
+    B[:, :, 0] = np.eye(2)  # action 0: stay
+    B[:, :, 1] = np.array(
+        [
+            [0, 1],  # action 1: flip
+            [1, 0],
+        ]
+    )
     C = np.array([1.0, -1.0])
     D = np.array([0.5, 0.5])
     return GenerativeModel(A=[A], B=[B], C=[C], D=[D], T=1)
@@ -58,13 +55,17 @@ def _make_metacognitive_agent(
     """Create a MetacognitiveAgent on the simple model."""
     gm = _make_simple_model()
     return MetacognitiveAgent(
-        gm, gamma=gamma, seed=seed, **kwargs,
+        gm,
+        gamma=gamma,
+        seed=seed,
+        **kwargs,
     )
 
 
 # ---------------------------------------------------------------------------
 # EFEMonitor tests
 # ---------------------------------------------------------------------------
+
 
 def test_efe_monitor_records():
     """Monitor stores predictions correctly."""
@@ -106,17 +107,20 @@ def test_efe_monitor_calibration():
     monitor_bad = EFEMonitor(decay=0.9, window_size=100)
     for _ in range(50):
         monitor_bad.record(
-            predicted_efe=-1.0, confidence=0.9, outcome_valence=1.0,
+            predicted_efe=-1.0,
+            confidence=0.9,
+            outcome_valence=1.0,
         )
     for _ in range(50):
         monitor_bad.record(
-            predicted_efe=-1.0, confidence=0.9, outcome_valence=-1.0,
+            predicted_efe=-1.0,
+            confidence=0.9,
+            outcome_valence=-1.0,
         )
 
     cal_bad = monitor_bad.get_calibration()
     assert cal_bad > 0.3, (
-        f"Overconfident agent should have high calibration error, "
-        f"got {cal_bad:.4f}"
+        f"Overconfident agent should have high calibration error, got {cal_bad:.4f}"
     )
 
     # Bad calibration should be worse than good calibration
@@ -144,7 +148,9 @@ def test_efe_monitor_online_m_ratio():
             conf = 0.3 + 0.2 * rng.random()  # low confidence
             valence = -1.0
         monitor_good.record(
-            predicted_efe=-1.0, confidence=conf, outcome_valence=valence,
+            predicted_efe=-1.0,
+            confidence=conf,
+            outcome_valence=valence,
         )
 
     m_good = monitor_good.get_online_m_ratio()
@@ -156,7 +162,9 @@ def test_efe_monitor_online_m_ratio():
         conf = rng.random()  # random confidence
         valence = 1.0 if correct else -1.0
         monitor_bad.record(
-            predicted_efe=-1.0, confidence=conf, outcome_valence=valence,
+            predicted_efe=-1.0,
+            confidence=conf,
+            outcome_valence=valence,
         )
 
     m_bad = monitor_bad.get_online_m_ratio()
@@ -184,8 +192,11 @@ def test_efe_monitor_summary():
 
     summary = monitor.get_summary()
     expected_keys = {
-        "n_records", "ema_confidence", "ema_accuracy",
-        "calibration_error", "online_m_ratio",
+        "n_records",
+        "ema_confidence",
+        "ema_accuracy",
+        "calibration_error",
+        "online_m_ratio",
     }
     assert set(summary.keys()) == expected_keys
     assert summary["n_records"] == 1
@@ -194,6 +205,7 @@ def test_efe_monitor_summary():
 # ---------------------------------------------------------------------------
 # MetacognitiveAgent tests
 # ---------------------------------------------------------------------------
+
 
 def test_metacognitive_agent_step():
     """Agent produces valid actions with the same interface as AnalyticAgent."""
@@ -230,7 +242,8 @@ def test_metacognitive_agent_step_matches_analytic():
         f"{action_ma} vs {action_aa}"
     )
     np.testing.assert_allclose(
-        info_ma["policy_probs"], info_aa["policy_probs"],
+        info_ma["policy_probs"],
+        info_aa["policy_probs"],
         err_msg="Policy probabilities should match",
     )
 
@@ -243,8 +256,6 @@ def test_metacognitive_agent_learns():
         gamma_learning_rate=0.2,
     )
 
-    initial_gamma = agent.gamma
-
     # Run several trials with mixed outcomes
     for i in range(20):
         agent.step([0])
@@ -252,9 +263,7 @@ def test_metacognitive_agent_learns():
         agent.learn(valence)
 
     # Gamma should have been adjusted at least once
-    assert len(agent.gamma_history) > 1, (
-        "Gamma history should grow after learn() calls"
-    )
+    assert len(agent.gamma_history) > 1, "Gamma history should grow after learn() calls"
 
 
 def test_metacognitive_agent_overconfident():
@@ -344,9 +353,15 @@ def test_metacognitive_agent_summary():
 
     summary = agent.get_metacognitive_summary()
     expected_keys = {
-        "m_ratio", "calibration_error", "current_gamma",
-        "gamma_history", "mean_confidence", "mean_accuracy",
-        "confidence_accuracy_gap", "n_trials", "monitor_summary",
+        "m_ratio",
+        "calibration_error",
+        "current_gamma",
+        "gamma_history",
+        "mean_confidence",
+        "mean_accuracy",
+        "confidence_accuracy_gap",
+        "n_trials",
+        "monitor_summary",
     }
     assert set(summary.keys()) == expected_keys
     assert summary["n_trials"] == 5
@@ -383,7 +398,8 @@ def test_metacognitive_agent_reset():
 
     # Inner agent beliefs should be reset to priors
     np.testing.assert_allclose(
-        agent.beliefs[0], agent.gm.D[0],
+        agent.beliefs[0],
+        agent.gm.D[0],
         err_msg="Beliefs should be reset to priors after reset()",
     )
 
@@ -434,12 +450,14 @@ def test_metacognitive_agent_gamma_bounds():
 # PopulationMetacognition tests
 # ---------------------------------------------------------------------------
 
+
 def test_population_metacognition():
     """Population stats are valid for multiple agents."""
     agents = []
     for i in range(5):
         agent = _make_metacognitive_agent(
-            gamma=2.0 + i, seed=i * 10,
+            gamma=2.0 + i,
+            seed=i * 10,
         )
         # Run different numbers of trials per agent
         for j in range(10 + i * 5):
@@ -458,8 +476,13 @@ def test_population_metacognition():
     # Heterogeneity stats
     stats = pop.get_heterogeneity_stats()
     expected_keys = {
-        "mean_m_ratio", "std_m_ratio", "min_m_ratio", "max_m_ratio",
-        "range_m_ratio", "mean_gamma", "std_gamma",
+        "mean_m_ratio",
+        "std_m_ratio",
+        "min_m_ratio",
+        "max_m_ratio",
+        "range_m_ratio",
+        "mean_gamma",
+        "std_gamma",
         "mean_calibration_error",
     }
     assert set(stats.keys()) == expected_keys
@@ -490,6 +513,7 @@ def test_population_summary():
 # Integration test: T-maze benchmark
 # ---------------------------------------------------------------------------
 
+
 def test_metacognitive_agent_t_maze():
     """Integration test on the T-maze benchmark.
 
@@ -499,7 +523,6 @@ def test_metacognitive_agent_t_maze():
     3. It achieves reasonable reward rate (>50% with cue usage).
     4. Gamma adjusts in response to performance.
     """
-    from alf.benchmarks.t_maze import build_t_maze_model
 
     gm = build_t_maze_model(cue_reliability=0.9, T=2)
     agent = MetacognitiveAgent(
@@ -559,9 +582,7 @@ def test_metacognitive_agent_t_maze():
     # whether the cue-first policy is preferred. With enough trials the
     # rate should exceed chance (25% for uniform random among 4 actions).
     reward_rate = sum(1 for r in rewards if r > 0) / num_trials
-    assert reward_rate > 0.2, (
-        f"T-maze reward rate too low: {reward_rate:.2f}"
-    )
+    assert reward_rate > 0.2, f"T-maze reward rate too low: {reward_rate:.2f}"
 
     # Gamma history should have been updated
     assert len(agent.gamma_history) > 1, (

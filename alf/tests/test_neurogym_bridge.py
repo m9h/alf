@@ -10,6 +10,14 @@ Requires: neurogym (``pip install neurogym``).
 Tests are skipped gracefully if neurogym is not installed.
 """
 
+from alf.envs.neurogym_bridge import (
+    NeurogymAdapter,
+    BinDiscretizer,
+    KMeansDiscretizer,
+)
+from alf.generative_model import GenerativeModel
+from alf.agent import AnalyticAgent
+
 import numpy as np
 import pytest
 
@@ -21,22 +29,9 @@ try:
 except ImportError:
     _HAS_NEUROGYM = False
 
-pytestmark = pytest.mark.skipif(
-    not _HAS_NEUROGYM, reason="neurogym not installed"
-)
-
-from alf.envs.neurogym_bridge import (
-    NeurogymAdapter,
-    BinDiscretizer,
-    KMeansDiscretizer,
-)
-from alf.generative_model import GenerativeModel
-from alf.agent import AnalyticAgent
-
-
+pytestmark = pytest.mark.skipif(not _HAS_NEUROGYM, reason="neurogym not installed")
 # ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+
 
 def _make_simple_env():
     """Create a simple NeuroGym environment for testing."""
@@ -73,7 +68,7 @@ class TestBinDiscretizer:
 
     def test_n_obs_count(self):
         disc = BinDiscretizer(n_bins=4, low=np.zeros(3), high=np.ones(3), obs_dim=3)
-        assert disc.n_obs == 4 ** 3
+        assert disc.n_obs == 4**3
 
 
 # ---------------------------------------------------------------------------
@@ -289,6 +284,7 @@ class TestEndToEnd:
 class TestCognitiveTasks:
     def test_make_task_known_name(self):
         from alf.envs.cognitive_tasks import make_task
+
         adapter = make_task("dm1", n_bins=3)
         assert isinstance(adapter, NeurogymAdapter)
         obs = adapter.reset()
@@ -296,11 +292,13 @@ class TestCognitiveTasks:
 
     def test_make_task_unknown_raises(self):
         from alf.envs.cognitive_tasks import make_task
+
         with pytest.raises(ValueError, match="Unknown task"):
             make_task("nonexistent_task")
 
     def test_yang19_tasks_dict(self):
         from alf.envs.cognitive_tasks import YANG19_TASKS
+
         # Should contain all 19 entries (some env IDs may repeat).
         assert len(YANG19_TASKS) >= 19
         for name, env_id in YANG19_TASKS.items():
