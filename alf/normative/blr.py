@@ -30,6 +30,7 @@ import numpy as np
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 class BLRParams(NamedTuple):
     """Posterior parameters of Bayesian Linear Regression.
 
@@ -39,6 +40,7 @@ class BLRParams(NamedTuple):
         beta: Noise precision (inverse variance), scalar.
         alpha: Prior precision on weights, scalar.
     """
+
     w_mean: jnp.ndarray
     w_cov: jnp.ndarray
     beta: jnp.ndarray
@@ -53,6 +55,7 @@ class BLRResult(NamedTuple):
         y_var: Predicted variance, shape (N,).
         y_std: Predicted standard deviation, shape (N,).
     """
+
     y_pred: jnp.ndarray
     y_var: jnp.ndarray
     y_std: jnp.ndarray
@@ -67,6 +70,7 @@ class NormativeResult(NamedTuple):
         y_std: Predicted std, shape (N,).
         blr_params: Fitted BLR parameters.
     """
+
     z_score: jnp.ndarray
     y_pred: jnp.ndarray
     y_std: jnp.ndarray
@@ -76,6 +80,7 @@ class NormativeResult(NamedTuple):
 # ---------------------------------------------------------------------------
 # B-spline basis
 # ---------------------------------------------------------------------------
+
 
 def _bspline_basis_element(
     x: jnp.ndarray,
@@ -99,7 +104,8 @@ def _bspline_basis_element(
     if degree == 0:
         return jnp.where(
             (x >= knots[i]) & (x < knots[i + 1]),
-            1.0, 0.0,
+            1.0,
+            0.0,
         )
 
     eps = 1e-16
@@ -109,16 +115,14 @@ def _bspline_basis_element(
 
     left = jnp.where(
         jnp.abs(denom_left) > eps,
-        (x - knots[i]) / denom_left * _bspline_basis_element(
-            x, knots, i, degree - 1
-        ),
+        (x - knots[i]) / denom_left * _bspline_basis_element(x, knots, i, degree - 1),
         0.0,
     )
     right = jnp.where(
         jnp.abs(denom_right) > eps,
-        (knots[i + degree + 1] - x) / denom_right * _bspline_basis_element(
-            x, knots, i + 1, degree - 1
-        ),
+        (knots[i + degree + 1] - x)
+        / denom_right
+        * _bspline_basis_element(x, knots, i + 1, degree - 1),
         0.0,
     )
 
@@ -164,11 +168,13 @@ def bspline_basis(
     interior = np.linspace(x_min, x_max, n_interior)
 
     # Pad with boundary knots (repeated for clamped spline)
-    knots = np.concatenate([
-        np.full(degree, x_min),
-        interior,
-        np.full(degree, x_max),
-    ])
+    knots = np.concatenate(
+        [
+            np.full(degree, x_min),
+            interior,
+            np.full(degree, x_max),
+        ]
+    )
 
     # Evaluate each basis function
     n_funcs = len(knots) - degree - 1
@@ -190,6 +196,7 @@ def bspline_basis(
 # ---------------------------------------------------------------------------
 # Bayesian Linear Regression
 # ---------------------------------------------------------------------------
+
 
 def fit_blr(
     Phi: jnp.ndarray,
@@ -244,9 +251,7 @@ def fit_blr(
 
         # Update beta
         residual = y - Phi @ w_mean
-        beta = jnp.clip(
-            (N - gamma) / (residual @ residual + eps), eps, 1e6
-        )
+        beta = jnp.clip((N - gamma) / (residual @ residual + eps), eps, 1e6)
 
     return BLRParams(w_mean=w_mean, w_cov=w_cov, beta=beta, alpha=alpha)
 
@@ -284,6 +289,7 @@ def predict_blr(
 # ---------------------------------------------------------------------------
 # Normative model (Z-scoring)
 # ---------------------------------------------------------------------------
+
 
 def compute_zscore(
     y_obs: jnp.ndarray,
@@ -388,7 +394,7 @@ def normative_model_vmap(
     Phi_test = jnp.array(bspline_basis(x_test, n_basis, degree, x_min, x_max))
 
     Y_train_jnp = jnp.array(Y_train)  # (N_train, n_regions)
-    Y_test_jnp = jnp.array(Y_test)    # (N_test, n_regions)
+    Y_test_jnp = jnp.array(Y_test)  # (N_test, n_regions)
 
     def fit_and_score_one_region(y_train, y_test):
         """Fit BLR and compute Z-scores for one region."""

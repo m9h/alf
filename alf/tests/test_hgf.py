@@ -37,6 +37,7 @@ from alf.hgf.learning import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def make_binary_params(omega_2=-2.0, mu_2_0=0.0, sigma_2_0=1.0):
     """Create standard binary HGF parameters."""
     return BinaryHGFParams(
@@ -93,6 +94,7 @@ def generate_volatile_continuous(n=200, seed=42):
 # ---------------------------------------------------------------------------
 # Binary HGF tests
 # ---------------------------------------------------------------------------
+
 
 def test_binary_hgf_update_returns_valid():
     """Test that a single binary HGF update returns finite values."""
@@ -210,23 +212,33 @@ def test_binary_hgf_high_volatility_tracks_faster():
 # Continuous HGF tests
 # ---------------------------------------------------------------------------
 
+
 def test_continuous_hgf_update_returns_valid():
     """Test that a single continuous HGF update returns finite values."""
     state = (
-        jnp.array(0.0), jnp.array(1.0),  # mu_1, pi_1
-        jnp.array(0.0), jnp.array(1.0),  # mu_2, pi_2
-        jnp.array(0.0), jnp.array(1.0),  # mu_3, pi_3
+        jnp.array(0.0),
+        jnp.array(1.0),  # mu_1, pi_1
+        jnp.array(0.0),
+        jnp.array(1.0),  # mu_2, pi_2
+        jnp.array(0.0),
+        jnp.array(1.0),  # mu_3, pi_3
     )
     u = jnp.array(0.5)
 
     result = continuous_hgf_update(
-        *state, u,
-        omega_1=jnp.array(-3.0), omega_2=jnp.array(-3.0),
-        kappa_1=jnp.array(1.0), kappa_2=jnp.array(1.0),
-        theta=jnp.array(0.01), pi_u=jnp.array(100.0),
+        *state,
+        u,
+        omega_1=jnp.array(-3.0),
+        omega_2=jnp.array(-3.0),
+        kappa_1=jnp.array(1.0),
+        kappa_2=jnp.array(1.0),
+        theta=jnp.array(0.01),
+        pi_u=jnp.array(100.0),
     )
 
-    for i, name in enumerate(["mu_1", "pi_1", "mu_2", "pi_2", "mu_3", "pi_3", "surprise"]):
+    for i, name in enumerate(
+        ["mu_1", "pi_1", "mu_2", "pi_2", "mu_3", "pi_3", "surprise"]
+    ):
         assert jnp.isfinite(result[i]), f"{name} not finite: {result[i]}"
 
     # Precisions should be positive
@@ -301,6 +313,7 @@ def test_continuous_hgf_jit():
 # Bridge tests
 # ---------------------------------------------------------------------------
 
+
 def test_discretize_belief_sums_to_one():
     """Test that discretized belief is a valid probability distribution."""
     mu = jnp.array(0.0)
@@ -330,8 +343,10 @@ def test_discretize_belief_centered():
 def test_hgf_to_categorical():
     """Test the convenience discretization function."""
     probs = hgf_to_categorical(
-        mu=jnp.array(0.0), pi=jnp.array(1.0),
-        num_states=5, state_range=(-3.0, 3.0),
+        mu=jnp.array(0.0),
+        pi=jnp.array(1.0),
+        num_states=5,
+        state_range=(-3.0, 3.0),
     )
 
     assert probs.shape == (5,), f"Expected 5 states, got {probs.shape}"
@@ -341,6 +356,7 @@ def test_hgf_to_categorical():
 # ---------------------------------------------------------------------------
 # Learning tests
 # ---------------------------------------------------------------------------
+
 
 def test_binary_hgf_nll_differentiable():
     """Test that binary HGF NLL is differentiable."""
@@ -394,4 +410,5 @@ def test_learn_continuous_hgf():
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "--tb=short"])

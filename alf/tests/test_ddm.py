@@ -31,6 +31,7 @@ from alf.ddm.bridge import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def standard_params():
     """Standard DDM parameters for testing."""
     return DDMParams(
@@ -44,6 +45,7 @@ def standard_params():
 # ---------------------------------------------------------------------------
 # Navarro-Fuss density tests
 # ---------------------------------------------------------------------------
+
 
 def test_wiener_log_density_finite():
     """Test that log-density is finite for valid parameters."""
@@ -155,6 +157,7 @@ def test_ddm_nll_differentiable():
 # Simulation tests
 # ---------------------------------------------------------------------------
 
+
 def test_simulate_ddm_basic():
     """Test that DDM simulation produces valid outputs."""
     result = simulate_ddm(v=1.0, a=1.5, w=0.5, tau=0.3, n_trials=100, seed=42)
@@ -209,6 +212,7 @@ def test_simulate_ddm_wider_boundary_slower():
 # Bridge tests
 # ---------------------------------------------------------------------------
 
+
 def test_efe_to_ddm_basic():
     """Test EFE-to-DDM mapping produces valid parameters."""
     G = jnp.array([0.5, -0.5])  # Action 1 has lower (better) EFE
@@ -237,12 +241,16 @@ def test_ddm_to_policy_probs_valid():
 def test_ddm_to_policy_probs_drift_direction():
     """Test that positive drift favors upper boundary."""
     params_pos = DDMParams(
-        v=jnp.array(2.0), a=jnp.array(1.5),
-        w=jnp.array(0.5), tau=jnp.array(0.3),
+        v=jnp.array(2.0),
+        a=jnp.array(1.5),
+        w=jnp.array(0.5),
+        tau=jnp.array(0.3),
     )
     params_neg = DDMParams(
-        v=jnp.array(-2.0), a=jnp.array(1.5),
-        w=jnp.array(0.5), tau=jnp.array(0.3),
+        v=jnp.array(-2.0),
+        a=jnp.array(1.5),
+        w=jnp.array(0.5),
+        tau=jnp.array(0.3),
     )
 
     probs_pos = ddm_to_policy_probs(params_pos)
@@ -255,8 +263,10 @@ def test_ddm_to_policy_probs_drift_direction():
 def test_ddm_to_policy_probs_zero_drift():
     """Test that zero drift gives equal probabilities (with w=0.5)."""
     params = DDMParams(
-        v=jnp.array(0.0), a=jnp.array(1.5),
-        w=jnp.array(0.5), tau=jnp.array(0.3),
+        v=jnp.array(0.0),
+        a=jnp.array(1.5),
+        w=jnp.array(0.5),
+        tau=jnp.array(0.3),
     )
     probs = ddm_to_policy_probs(params)
 
@@ -265,4 +275,5 @@ def test_ddm_to_policy_probs_zero_drift():
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "--tb=short"])

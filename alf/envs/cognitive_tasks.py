@@ -35,8 +35,8 @@ YANG19_TASKS: dict[str, str] = {
     "rtgo": "GoNogo-v0",
     "dlygo": "DelayedMatchToSample-v0",
     "anti": "AntiReach-v0",
-    "rtanti": "AntiReach-v0",       # variant; kwargs can adjust
-    "dlyanti": "AntiReach-v0",      # variant; kwargs can adjust
+    "rtanti": "AntiReach-v0",  # variant; kwargs can adjust
+    "dlyanti": "AntiReach-v0",  # variant; kwargs can adjust
     # Decision-making family
     "dm1": "PerceptualDecisionMaking-v0",
     "dm2": "PerceptualDecisionMaking-v0",
@@ -97,9 +97,7 @@ def make_task(
     task_key = task_name.lower().replace("-", "").replace("_", "")
     if task_key not in YANG19_TASKS:
         valid = ", ".join(sorted(YANG19_TASKS.keys()))
-        raise ValueError(
-            f"Unknown task '{task_name}'. Valid names: {valid}"
-        )
+        raise ValueError(f"Unknown task '{task_name}'. Valid names: {valid}")
 
     env_id = YANG19_TASKS[task_key]
 

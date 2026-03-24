@@ -80,8 +80,13 @@ NUM_ACTIONS = 3
 
 ACTION_NAMES = ["fixate", "respond_match", "respond_nonmatch"]
 OBS_NAMES = [
-    "fixation", "sample_left", "sample_right",
-    "test_left", "test_right", "reward", "punishment",
+    "fixation",
+    "sample_left",
+    "sample_right",
+    "test_left",
+    "test_right",
+    "reward",
+    "punishment",
 ]
 
 
@@ -304,16 +309,12 @@ class DelayedMatchEnv:
         if self.phase == PHASE_FIX:
             return OBS_FIXATION
         elif self.phase == PHASE_SAMPLE:
-            return (OBS_SAMPLE_LEFT
-                    if self.sample == DIR_LEFT
-                    else OBS_SAMPLE_RIGHT)
+            return OBS_SAMPLE_LEFT if self.sample == DIR_LEFT else OBS_SAMPLE_RIGHT
         elif self.phase == PHASE_DELAY:
             return OBS_FIXATION
         elif self.phase == PHASE_TEST:
             test_dir = _test_direction(self.sample, self.match_cond)
-            return (OBS_TEST_LEFT
-                    if test_dir == DIR_LEFT
-                    else OBS_TEST_RIGHT)
+            return OBS_TEST_LEFT if test_dir == DIR_LEFT else OBS_TEST_RIGHT
         elif self.phase == PHASE_RESP:
             if self.agent_response is not None:
                 correct = _correct_response(self.match_cond)
@@ -405,11 +406,13 @@ def run_delayed_match(
 
     match_acc = (
         sum(1 for r in match_trials if r["correct"]) / len(match_trials)
-        if match_trials else 0.0
+        if match_trials
+        else 0.0
     )
     nonmatch_acc = (
         sum(1 for r in nonmatch_trials if r["correct"]) / len(nonmatch_trials)
-        if nonmatch_trials else 0.0
+        if nonmatch_trials
+        else 0.0
     )
 
     rewards = [r["reward"] for r in results]

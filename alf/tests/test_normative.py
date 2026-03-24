@@ -10,7 +10,6 @@ Tests BLR and SHASH warping, verifying:
 """
 
 import numpy as np
-import jax
 import jax.numpy as jnp
 
 from alf.normative.blr import (
@@ -31,6 +30,7 @@ from alf.normative.warping import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def generate_normative_data(
     n_train: int = 200,
@@ -55,7 +55,9 @@ def generate_normative_data(
 
     # Add outliers (large deviations)
     outlier_idx = rng.choice(n_test, n_outliers, replace=False)
-    y_test[outlier_idx] += rng.choice([-20, 20], n_outliers) + rng.normal(0, 5, n_outliers)
+    y_test[outlier_idx] += rng.choice([-20, 20], n_outliers) + rng.normal(
+        0, 5, n_outliers
+    )
 
     return x_train, y_train, x_test, y_test
 
@@ -63,6 +65,7 @@ def generate_normative_data(
 # ---------------------------------------------------------------------------
 # B-spline tests
 # ---------------------------------------------------------------------------
+
 
 def test_bspline_basis_shape():
     """Test that B-spline basis has correct shape."""
@@ -91,14 +94,17 @@ def test_bspline_basis_partition_of_unity():
     interior_mask = (x > 1.5) & (x < 8.5)
     if np.any(interior_mask):
         np.testing.assert_allclose(
-            row_sums[interior_mask], 1.0, atol=0.2,
-            err_msg="B-splines should approximately partition unity at interior"
+            row_sums[interior_mask],
+            1.0,
+            atol=0.2,
+            err_msg="B-splines should approximately partition unity at interior",
         )
 
 
 # ---------------------------------------------------------------------------
 # BLR tests
 # ---------------------------------------------------------------------------
+
 
 def test_fit_blr_returns_valid():
     """Test that BLR fitting returns valid parameters."""
@@ -131,7 +137,7 @@ def test_fit_blr_recovers_linear():
 
     # Predicted should be close to observed
     residuals = np.array(y_jnp - pred.y_pred)
-    rmse = np.sqrt(np.mean(residuals ** 2))
+    rmse = np.sqrt(np.mean(residuals**2))
     assert rmse < 1.0, f"RMSE should be small for linear fit: {rmse:.3f}"
 
 
@@ -155,6 +161,7 @@ def test_predict_blr_uncertainty():
 # ---------------------------------------------------------------------------
 # Z-score tests
 # ---------------------------------------------------------------------------
+
 
 def test_compute_zscore_zero_for_mean():
     """Test that Z-score is zero when observed equals predicted."""
@@ -182,13 +189,18 @@ def test_compute_zscore_positive_for_deviation():
 # Normative model integration tests
 # ---------------------------------------------------------------------------
 
+
 def test_normative_model_basic():
     """Test full normative modeling pipeline."""
     x_train, y_train, x_test, y_test = generate_normative_data()
 
     result = normative_model(
-        x_train, y_train, x_test, y_test,
-        n_basis=8, degree=3,
+        x_train,
+        y_train,
+        x_test,
+        y_test,
+        n_basis=8,
+        degree=3,
     )
 
     assert result.z_score.shape == (50,), f"z shape: {result.z_score.shape}"
@@ -234,7 +246,11 @@ def test_normative_model_vmap_shape():
     Y_test = rng.normal(0, 1, (n_test, n_regions))
 
     z_scores, y_pred, y_std = normative_model_vmap(
-        x_train, Y_train, x_test, Y_test, n_basis=6,
+        x_train,
+        Y_train,
+        x_test,
+        Y_test,
+        n_basis=6,
     )
 
     assert z_scores.shape == (n_test, n_regions), f"z shape: {z_scores.shape}"
@@ -246,6 +262,7 @@ def test_normative_model_vmap_shape():
 # ---------------------------------------------------------------------------
 # SHASH warping tests
 # ---------------------------------------------------------------------------
+
 
 def test_shash_identity_warping():
     """Test that SHASH with epsilon=0, delta=1 is approximately identity."""
@@ -296,11 +313,15 @@ def test_shash_log_prob_normal_case():
     shash_lp = float(shash_log_prob(y, mu, sigma, jnp.array(0.0), jnp.array(1.0)))
     normal_lp = float(-0.5 * jnp.log(2.0 * jnp.pi))  # log N(0|0,1)
 
-    np.testing.assert_allclose(shash_lp, normal_lp, atol=0.1,
-        err_msg="SHASH with default params should approximate normal"
+    np.testing.assert_allclose(
+        shash_lp,
+        normal_lp,
+        atol=0.1,
+        err_msg="SHASH with default params should approximate normal",
     )
 
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "--tb=short"])

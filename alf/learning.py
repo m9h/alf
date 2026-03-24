@@ -26,7 +26,7 @@ References:
         Active Inference. arXiv:2002.12636.
 """
 
-from typing import Any, NamedTuple, Optional
+from typing import NamedTuple, Optional
 
 import jax
 import jax.numpy as jnp
@@ -39,8 +39,10 @@ from alf.generative_model import GenerativeModel
 # Learnable generative model
 # ---------------------------------------------------------------------------
 
+
 class LearnableParams(NamedTuple):
     """Unconstrained parameters that map to valid A and B matrices."""
+
     log_A_params: list[jnp.ndarray]
     log_B_params: list[jnp.ndarray]
 
@@ -71,14 +73,8 @@ class LearnableGenerativeModel:
     @classmethod
     def from_model(cls, gm: GenerativeModel) -> "LearnableGenerativeModel":
         """Initialize learnable parameters from an existing GenerativeModel."""
-        log_A_params = [
-            jnp.array(np.log(np.clip(a, 1e-16, None)))
-            for a in gm.A
-        ]
-        log_B_params = [
-            jnp.array(np.log(np.clip(b, 1e-16, None)))
-            for b in gm.B
-        ]
+        log_A_params = [jnp.array(np.log(np.clip(a, 1e-16, None))) for a in gm.A]
+        log_B_params = [jnp.array(np.log(np.clip(b, 1e-16, None))) for b in gm.B]
         return cls(
             log_A_params=log_A_params,
             log_B_params=log_B_params,
@@ -90,6 +86,7 @@ class LearnableGenerativeModel:
 # ---------------------------------------------------------------------------
 # Parameter conversion
 # ---------------------------------------------------------------------------
+
 
 def params_to_A(log_A_params: list[jnp.ndarray]) -> list[jnp.ndarray]:
     """Convert unconstrained log-parameters to valid likelihood matrices."""
@@ -111,6 +108,7 @@ def params_to_matrices(
 # ---------------------------------------------------------------------------
 # Analytic negative log-likelihood via forward filtering
 # ---------------------------------------------------------------------------
+
 
 def _forward_filter_step(
     carry: tuple[jnp.ndarray, jnp.ndarray],
@@ -199,8 +197,11 @@ def analytic_nll_single(
 ) -> jnp.ndarray:
     """Convenience wrapper for single-factor, single-modality models."""
     return analytic_nll(
-        [log_A_params], [log_B_params], [D],
-        observations, actions,
+        [log_A_params],
+        [log_B_params],
+        [D],
+        observations,
+        actions,
     )
 
 
@@ -208,8 +209,10 @@ def analytic_nll_single(
 # Gradient-based learning
 # ---------------------------------------------------------------------------
 
+
 class LearningResult(NamedTuple):
     """Result of gradient-based model learning."""
+
     learned_A: list[np.ndarray]
     learned_B: list[np.ndarray]
     log_A_params: list[jnp.ndarray]
@@ -222,6 +225,7 @@ def _try_import_optax():
     """Try to import optax, return None if unavailable."""
     try:
         import optax
+
         return optax
     except ImportError:
         return None
@@ -296,17 +300,13 @@ def learn_model(
         def update_step(log_A, log_B, opt_state):
             loss = loss_fn(log_A, log_B)
             grads = grad_fn(log_A, log_B)
-            updates, new_opt_state = optimizer.update(
-                grads, opt_state, (log_A, log_B)
-            )
+            updates, new_opt_state = optimizer.update(grads, opt_state, (log_A, log_B))
             new_log_A = log_A + updates[0]
             new_log_B = log_B + updates[1]
             return new_log_A, new_log_B, new_opt_state, loss
 
         for epoch in range(num_epochs):
-            log_A, log_B, opt_state, loss = update_step(
-                log_A, log_B, opt_state
-            )
+            log_A, log_B, opt_state, loss = update_step(log_A, log_B, opt_state)
             loss_val = float(loss)
             loss_history.append(loss_val)
             if verbose and (epoch % 10 == 0 or epoch == num_epochs - 1):
@@ -391,7 +391,7 @@ def learn_from_agent_data(
 
     min_len = min(len(obs), len(acts) + 1)
     obs = obs[:min_len]
-    acts = acts[:min_len - 1]
+    acts = acts[: min_len - 1]
 
     acts_padded = np.concatenate([acts, [0]])
 
@@ -412,6 +412,7 @@ def learn_from_agent_data(
 # ---------------------------------------------------------------------------
 # Data generation utilities
 # ---------------------------------------------------------------------------
+
 
 def generate_data(
     A: np.ndarray,
@@ -446,22 +447,22 @@ def generate_data(
     states[0] = int(jax.random.categorical(subkey, jnp.log(jnp.array(D))))
 
     key, subkey = jax.random.split(key)
-    observations[0] = int(jax.random.categorical(
-        subkey, jnp.log(jnp.array(A[:, states[0]]))
-    ))
+    observations[0] = int(
+        jax.random.categorical(subkey, jnp.log(jnp.array(A[:, states[0]])))
+    )
 
     for t in range(T):
         key, subkey = jax.random.split(key)
         trans_probs = B[:, states[t], actions[t]]
-        states[t + 1] = int(jax.random.categorical(
-            subkey, jnp.log(jnp.array(trans_probs))
-        ))
+        states[t + 1] = int(
+            jax.random.categorical(subkey, jnp.log(jnp.array(trans_probs)))
+        )
 
         key, subkey = jax.random.split(key)
         obs_probs = A[:, states[t + 1]]
-        observations[t + 1] = int(jax.random.categorical(
-            subkey, jnp.log(jnp.array(obs_probs))
-        ))
+        observations[t + 1] = int(
+            jax.random.categorical(subkey, jnp.log(jnp.array(obs_probs)))
+        )
 
     return observations, states
 
@@ -469,6 +470,7 @@ def generate_data(
 # ---------------------------------------------------------------------------
 # Log-likelihood wrapper
 # ---------------------------------------------------------------------------
+
 
 def compute_observation_log_likelihood_analytic(
     params: LearnableParams,

@@ -10,7 +10,6 @@ The reference data was generated with known parameters:
                 theta=0.01, pi_u=100.0
 """
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -23,7 +22,6 @@ from alf.hgf.updates import (
     binary_hgf,
     continuous_hgf,
     binary_hgf_surprise,
-    continuous_hgf_surprise,
 )
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -31,7 +29,11 @@ REF_FILE = DATA_DIR / "hgf_reference.npz"
 HAS_REFERENCE = REF_FILE.exists()
 
 try:
-    import pyhgf
+    import importlib.util
+
+    pyhgf = importlib.util.find_spec("pyhgf")
+    if pyhgf is None:
+        raise ImportError
     HAS_PYHGF = True
 except ImportError:
     HAS_PYHGF = False
@@ -40,6 +42,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def load_reference():
     """Load saved reference trajectories."""
@@ -56,18 +59,25 @@ def make_binary_params():
 
 def make_continuous_params():
     return ContinuousHGFParams(
-        omega_1=jnp.array(-3.0), omega_2=jnp.array(-3.0),
-        kappa_1=jnp.array(1.0), kappa_2=jnp.array(1.0),
-        theta=jnp.array(0.01), pi_u=jnp.array(100.0),
-        mu_1_0=jnp.array(0.0), sigma_1_0=jnp.array(1.0),
-        mu_2_0=jnp.array(0.0), sigma_2_0=jnp.array(1.0),
-        mu_3_0=jnp.array(0.0), sigma_3_0=jnp.array(1.0),
+        omega_1=jnp.array(-3.0),
+        omega_2=jnp.array(-3.0),
+        kappa_1=jnp.array(1.0),
+        kappa_2=jnp.array(1.0),
+        theta=jnp.array(0.01),
+        pi_u=jnp.array(100.0),
+        mu_1_0=jnp.array(0.0),
+        sigma_1_0=jnp.array(1.0),
+        mu_2_0=jnp.array(0.0),
+        sigma_2_0=jnp.array(1.0),
+        mu_3_0=jnp.array(0.0),
+        sigma_3_0=jnp.array(1.0),
     )
 
 
 # ---------------------------------------------------------------------------
 # Regression tests against saved reference
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.skipif(not HAS_REFERENCE, reason="Reference data not generated")
 def test_binary_hgf_mu_matches_reference():
@@ -76,8 +86,10 @@ def test_binary_hgf_mu_matches_reference():
     result = binary_hgf(jnp.array(ref["binary_obs"]), make_binary_params())
 
     np.testing.assert_allclose(
-        np.array(result.mu), ref["binary_mu"], atol=1e-5,
-        err_msg="Binary HGF mu trajectory drifted from reference"
+        np.array(result.mu),
+        ref["binary_mu"],
+        atol=1e-5,
+        err_msg="Binary HGF mu trajectory drifted from reference",
     )
 
 
@@ -88,8 +100,10 @@ def test_binary_hgf_pi_matches_reference():
     result = binary_hgf(jnp.array(ref["binary_obs"]), make_binary_params())
 
     np.testing.assert_allclose(
-        np.array(result.pi), ref["binary_pi"], atol=1e-5,
-        err_msg="Binary HGF pi trajectory drifted from reference"
+        np.array(result.pi),
+        ref["binary_pi"],
+        atol=1e-5,
+        err_msg="Binary HGF pi trajectory drifted from reference",
     )
 
 
@@ -100,8 +114,10 @@ def test_binary_hgf_surprise_matches_reference():
     result = binary_hgf(jnp.array(ref["binary_obs"]), make_binary_params())
 
     np.testing.assert_allclose(
-        np.array(result.surprise), ref["binary_surprise"], atol=1e-5,
-        err_msg="Binary HGF surprise drifted from reference"
+        np.array(result.surprise),
+        ref["binary_surprise"],
+        atol=1e-5,
+        err_msg="Binary HGF surprise drifted from reference",
     )
 
 
@@ -109,13 +125,16 @@ def test_binary_hgf_surprise_matches_reference():
 def test_binary_hgf_total_surprise_stable():
     """Test total binary surprise is stable."""
     ref = load_reference()
-    total = float(binary_hgf_surprise(
-        jnp.array(ref["binary_obs"]), make_binary_params()
-    ))
+    total = float(
+        binary_hgf_surprise(jnp.array(ref["binary_obs"]), make_binary_params())
+    )
     expected = float(np.sum(ref["binary_surprise"]))
 
-    np.testing.assert_allclose(total, expected, atol=1e-4,
-        err_msg=f"Total surprise changed: {total:.4f} vs {expected:.4f}"
+    np.testing.assert_allclose(
+        total,
+        expected,
+        atol=1e-4,
+        err_msg=f"Total surprise changed: {total:.4f} vs {expected:.4f}",
     )
 
 
@@ -126,8 +145,10 @@ def test_continuous_hgf_mu_matches_reference():
     result = continuous_hgf(jnp.array(ref["continuous_obs"]), make_continuous_params())
 
     np.testing.assert_allclose(
-        np.array(result.mu), ref["continuous_mu"], atol=1e-4,
-        err_msg="Continuous HGF mu trajectory drifted from reference"
+        np.array(result.mu),
+        ref["continuous_mu"],
+        atol=1e-4,
+        err_msg="Continuous HGF mu trajectory drifted from reference",
     )
 
 
@@ -138,14 +159,17 @@ def test_continuous_hgf_surprise_matches_reference():
     result = continuous_hgf(jnp.array(ref["continuous_obs"]), make_continuous_params())
 
     np.testing.assert_allclose(
-        np.array(result.surprise), ref["continuous_surprise"], atol=1e-4,
-        err_msg="Continuous HGF surprise drifted from reference"
+        np.array(result.surprise),
+        ref["continuous_surprise"],
+        atol=1e-4,
+        err_msg="Continuous HGF surprise drifted from reference",
     )
 
 
 # ---------------------------------------------------------------------------
 # Hand-computed validation (first few trials)
 # ---------------------------------------------------------------------------
+
 
 def test_binary_hgf_first_trial_hand_computed():
     """Verify first trial of binary HGF against hand computation.
@@ -166,8 +190,10 @@ def test_binary_hgf_first_trial_hand_computed():
 
     expected_surprise = -np.log(0.5)
     np.testing.assert_allclose(
-        float(result.surprise[0]), expected_surprise, atol=1e-3,
-        err_msg="First trial surprise should be -log(0.5)"
+        float(result.surprise[0]),
+        expected_surprise,
+        atol=1e-3,
+        err_msg="First trial surprise should be -log(0.5)",
     )
 
     # mu_2 should move toward positive (since we observed 1)
@@ -182,8 +208,10 @@ def test_binary_hgf_first_trial_hand_computed():
     expected_mu_2 = 0.0 + delta_1 / new_pi_2
 
     np.testing.assert_allclose(
-        float(result.mu[0, 0]), expected_mu_2, atol=1e-4,
-        err_msg="First trial mu_2 doesn't match hand computation"
+        float(result.mu[0, 0]),
+        expected_mu_2,
+        atol=1e-4,
+        err_msg="First trial mu_2 doesn't match hand computation",
     )
 
 
@@ -195,8 +223,11 @@ def test_continuous_hgf_constant_input_converges():
 
     # Level 1 should converge near 3.0
     final_mu_1 = float(result.mu[-1, 0])
-    np.testing.assert_allclose(final_mu_1, 3.0, atol=0.3,
-        err_msg=f"Level 1 should converge to 3.0, got {final_mu_1:.3f}"
+    np.testing.assert_allclose(
+        final_mu_1,
+        3.0,
+        atol=0.3,
+        err_msg=f"Level 1 should converge to 3.0, got {final_mu_1:.3f}",
     )
 
     # Surprise should decrease as the model learns
@@ -210,6 +241,7 @@ def test_continuous_hgf_constant_input_converges():
 # ---------------------------------------------------------------------------
 # pyhgf oracle tests (skip if not installed)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.skipif(not HAS_PYHGF, reason="pyhgf not installed")
 def test_binary_hgf_matches_pyhgf():

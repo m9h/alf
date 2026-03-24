@@ -35,10 +35,15 @@ from alf.ddm.fitting import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _has_numpyro():
     """Check if numpyro is available."""
     try:
-        import numpyro
+        import importlib.util
+
+        numpyro = importlib.util.find_spec("numpyro")
+        if numpyro is None:
+            raise ImportError
         return True
     except ImportError:
         return False
@@ -59,6 +64,7 @@ def _simulate_standard_data(
 # ---------------------------------------------------------------------------
 # Parameter transform tests
 # ---------------------------------------------------------------------------
+
 
 def test_unconstrained_roundtrip():
     """Test that constrained -> unconstrained -> constrained is identity."""
@@ -103,12 +109,15 @@ def test_nll_unconstrained_differentiable():
 # MLE fitting tests
 # ---------------------------------------------------------------------------
 
+
 def test_fit_ddm_mle_reduces_loss():
     """Test that MLE fitting reduces the NLL over epochs."""
     sim = _simulate_standard_data(n_trials=200)
     result = fit_ddm_mle(
-        rt=sim.rt, choice=sim.choice,
-        num_epochs=200, lr=0.01,
+        rt=sim.rt,
+        choice=sim.choice,
+        num_epochs=200,
+        lr=0.01,
     )
 
     assert isinstance(result, DDMFitResult)
@@ -130,8 +139,10 @@ def test_fit_ddm_mle_recovers_params():
     )
 
     result = fit_ddm_mle(
-        rt=sim.rt, choice=sim.choice,
-        num_epochs=800, lr=0.01,
+        rt=sim.rt,
+        choice=sim.choice,
+        num_epochs=800,
+        lr=0.01,
     )
 
     # Drift rate should be roughly recovered (most identifiable parameter)
@@ -158,19 +169,25 @@ def test_fit_ddm_mle_jit():
 
     # First run: compiles
     result1 = fit_ddm_mle(
-        rt=sim.rt, choice=sim.choice,
-        num_epochs=50, lr=0.01,
+        rt=sim.rt,
+        choice=sim.choice,
+        num_epochs=50,
+        lr=0.01,
     )
 
     # Second run: should reuse compiled code
     result2 = fit_ddm_mle(
-        rt=sim.rt, choice=sim.choice,
-        num_epochs=50, lr=0.01,
+        rt=sim.rt,
+        choice=sim.choice,
+        num_epochs=50,
+        lr=0.01,
     )
 
     # Results should be identical (same data, same init)
     np.testing.assert_allclose(
-        result1.loss_history[-1], result2.loss_history[-1], atol=1e-4,
+        result1.loss_history[-1],
+        result2.loss_history[-1],
+        atol=1e-4,
     )
 
 
@@ -178,8 +195,10 @@ def test_fit_ddm_mle_constrained():
     """Test that fitted parameters respect constraints."""
     sim = _simulate_standard_data(n_trials=200)
     result = fit_ddm_mle(
-        rt=sim.rt, choice=sim.choice,
-        num_epochs=300, lr=0.01,
+        rt=sim.rt,
+        choice=sim.choice,
+        num_epochs=300,
+        lr=0.01,
     )
 
     assert result.a > 0, f"a must be > 0, got {result.a}"
@@ -197,9 +216,11 @@ def test_fit_ddm_mle_custom_init():
         tau=jnp.array(0.2),
     )
     result = fit_ddm_mle(
-        rt=sim.rt, choice=sim.choice,
+        rt=sim.rt,
+        choice=sim.choice,
         init_params=init_params,
-        num_epochs=200, lr=0.01,
+        num_epochs=200,
+        lr=0.01,
     )
 
     assert isinstance(result, DDMFitResult)
@@ -211,22 +232,24 @@ def test_fit_ddm_mle_negative_drift():
     """Test that MLE correctly identifies negative drift."""
     sim = _simulate_standard_data(v=-2.0, n_trials=300, seed=99)
     result = fit_ddm_mle(
-        rt=sim.rt, choice=sim.choice,
-        num_epochs=500, lr=0.01,
+        rt=sim.rt,
+        choice=sim.choice,
+        num_epochs=500,
+        lr=0.01,
     )
 
     # Recovered drift should be negative
-    assert result.v < 0, (
-        f"Expected negative drift, got v={result.v:.3f}"
-    )
+    assert result.v < 0, f"Expected negative drift, got v={result.v:.3f}"
 
 
 def test_fit_ddm_mle_n_trials():
     """Test that n_trials is correctly recorded."""
     sim = _simulate_standard_data(n_trials=150)
     result = fit_ddm_mle(
-        rt=sim.rt, choice=sim.choice,
-        num_epochs=10, lr=0.01,
+        rt=sim.rt,
+        choice=sim.choice,
+        num_epochs=10,
+        lr=0.01,
     )
     assert result.n_trials == 150
 
@@ -235,14 +258,18 @@ def test_fit_ddm_mle_n_trials():
 # Bayesian fitting tests (skip if no numpyro)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.skipif(not _has_numpyro(), reason="numpyro not installed")
 def test_fit_ddm_bayesian_runs():
     """Test that Bayesian fitting produces valid posterior samples."""
     sim = _simulate_standard_data(n_trials=100, seed=42)
 
     result = fit_ddm_bayesian(
-        rt=sim.rt, choice=sim.choice,
-        num_warmup=200, num_samples=500, seed=42,
+        rt=sim.rt,
+        choice=sim.choice,
+        num_warmup=200,
+        num_samples=500,
+        seed=42,
     )
 
     # Check structure
@@ -267,8 +294,11 @@ def test_fit_ddm_bayesian_import_error():
     # This test just ensures the function runs when numpyro IS available
     sim = _simulate_standard_data(n_trials=50)
     result = fit_ddm_bayesian(
-        rt=sim.rt, choice=sim.choice,
-        num_warmup=100, num_samples=100, seed=0,
+        rt=sim.rt,
+        choice=sim.choice,
+        num_warmup=100,
+        num_samples=100,
+        seed=0,
     )
     assert result["v_mean"] is not None
 
@@ -278,6 +308,7 @@ def test_fit_ddm_bayesian_no_numpyro():
     # We cannot easily mock the import away, so just verify the function
     # exists and has the right signature
     import inspect
+
     sig = inspect.signature(fit_ddm_bayesian)
     assert "rt" in sig.parameters
     assert "choice" in sig.parameters
@@ -288,6 +319,7 @@ def test_fit_ddm_bayesian_no_numpyro():
 # ---------------------------------------------------------------------------
 # Hierarchical fitting tests (skip if no numpyro)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.skipif(not _has_numpyro(), reason="numpyro not installed")
 def test_fit_ddm_hierarchical_runs():
@@ -304,7 +336,9 @@ def test_fit_ddm_hierarchical_runs():
         rt_list=rt_list,
         choice_list=choice_list,
         subject_ids=["subj_A", "subj_B", "subj_C"],
-        num_warmup=200, num_samples=300, seed=42,
+        num_warmup=200,
+        num_samples=300,
+        seed=42,
     )
 
     # Check structure
@@ -335,7 +369,9 @@ def test_fit_ddm_hierarchical_default_ids():
     result = fit_ddm_hierarchical(
         rt_list=rt_list,
         choice_list=choice_list,
-        num_warmup=100, num_samples=200, seed=0,
+        num_warmup=100,
+        num_samples=200,
+        seed=0,
     )
 
     assert result["n_subjects"] == 2
@@ -348,12 +384,20 @@ def test_fit_ddm_hierarchical_default_ids():
 # Posterior predictive tests
 # ---------------------------------------------------------------------------
 
+
 def test_ddm_posterior_predictive_from_fit_result():
     """Test posterior predictive generation from DDMFitResult."""
     result = DDMFitResult(
-        v=1.5, a=1.5, w=0.5, tau=0.3,
-        v_se=None, a_se=None, w_se=None, tau_se=None,
-        loss_history=[], n_trials=100,
+        v=1.5,
+        a=1.5,
+        w=0.5,
+        tau=0.3,
+        v_se=None,
+        a_se=None,
+        w_se=None,
+        tau_se=None,
+        loss_history=[],
+        n_trials=100,
     )
 
     pp = ddm_posterior_predictive(result, n_trials=200, seed=42)
@@ -381,8 +425,11 @@ def test_ddm_posterior_predictive_from_posterior():
     """Test posterior predictive from Bayesian posterior samples."""
     sim = _simulate_standard_data(n_trials=100)
     bayes_result = fit_ddm_bayesian(
-        rt=sim.rt, choice=sim.choice,
-        num_warmup=100, num_samples=200, seed=42,
+        rt=sim.rt,
+        choice=sim.choice,
+        num_warmup=100,
+        num_samples=200,
+        seed=42,
     )
 
     pp = ddm_posterior_predictive(bayes_result, n_trials=100, seed=42)
@@ -400,6 +447,7 @@ def test_ddm_posterior_predictive_invalid_input():
 # ---------------------------------------------------------------------------
 # Recovery check tests
 # ---------------------------------------------------------------------------
+
 
 def test_ddm_recovery_basic():
     """Test basic parameter recovery with fixed parameters."""
@@ -462,8 +510,10 @@ def test_ddm_recovery_result_structure():
     """Test that DDMRecoveryResult has the expected structure."""
     recovery = ddm_recovery_check(
         true_params=DDMParams(
-            v=jnp.array(1.0), a=jnp.array(1.5),
-            w=jnp.array(0.5), tau=jnp.array(0.3),
+            v=jnp.array(1.0),
+            a=jnp.array(1.5),
+            w=jnp.array(0.5),
+            tau=jnp.array(0.3),
         ),
         n_trials=100,
         n_repeats=2,
@@ -483,6 +533,7 @@ def test_ddm_recovery_result_structure():
 # Integration tests
 # ---------------------------------------------------------------------------
 
+
 def test_fit_and_posterior_predictive_roundtrip():
     """Test full pipeline: simulate -> fit -> posterior predictive."""
     # Simulate
@@ -490,8 +541,10 @@ def test_fit_and_posterior_predictive_roundtrip():
 
     # Fit
     result = fit_ddm_mle(
-        rt=sim.rt, choice=sim.choice,
-        num_epochs=400, lr=0.01,
+        rt=sim.rt,
+        choice=sim.choice,
+        num_epochs=400,
+        lr=0.01,
     )
 
     # Posterior predictive
@@ -513,8 +566,10 @@ def test_fit_ddm_mle_with_extreme_params():
     # Very strong drift
     sim = simulate_ddm(v=5.0, a=1.0, w=0.5, tau=0.2, n_trials=200, seed=42)
     result = fit_ddm_mle(
-        rt=sim.rt, choice=sim.choice,
-        num_epochs=300, lr=0.01,
+        rt=sim.rt,
+        choice=sim.choice,
+        num_epochs=300,
+        lr=0.01,
     )
 
     assert result.a > 0

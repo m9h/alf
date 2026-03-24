@@ -10,7 +10,7 @@ References:
         the Hierarchical Gaussian Filter. Frontiers in Human Neuroscience.
 """
 
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import jax
 import jax.numpy as jnp
@@ -28,6 +28,7 @@ from alf.hgf.updates import (
 # Learning results
 # ---------------------------------------------------------------------------
 
+
 class BinaryHGFLearningResult(NamedTuple):
     """Result of binary HGF parameter learning.
 
@@ -35,6 +36,7 @@ class BinaryHGFLearningResult(NamedTuple):
         params: Learned HGF parameters.
         loss_history: NLL at each epoch.
     """
+
     params: BinaryHGFParams
     loss_history: list[float]
 
@@ -46,6 +48,7 @@ class ContinuousHGFLearningResult(NamedTuple):
         params: Learned HGF parameters.
         loss_history: NLL at each epoch.
     """
+
     params: ContinuousHGFParams
     loss_history: list[float]
 
@@ -53,6 +56,7 @@ class ContinuousHGFLearningResult(NamedTuple):
 # ---------------------------------------------------------------------------
 # Differentiable NLL wrappers
 # ---------------------------------------------------------------------------
+
 
 def binary_hgf_nll(
     omega_2: jnp.ndarray,
@@ -80,11 +84,17 @@ def binary_hgf_nll(
 
 
 def continuous_hgf_nll(
-    learnable: tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray,
-                     jnp.ndarray, jnp.ndarray],
+    learnable: tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray],
     observations: jnp.ndarray,
-    fixed: tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray,
-                 jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray],
+    fixed: tuple[
+        jnp.ndarray,
+        jnp.ndarray,
+        jnp.ndarray,
+        jnp.ndarray,
+        jnp.ndarray,
+        jnp.ndarray,
+        jnp.ndarray,
+    ],
 ) -> jnp.ndarray:
     """Differentiable NLL for continuous HGF w.r.t. learnable parameters.
 
@@ -104,12 +114,18 @@ def continuous_hgf_nll(
     pi_u, mu_1_0, sigma_1_0, mu_2_0, sigma_2_0, mu_3_0, sigma_3_0 = fixed
 
     params = ContinuousHGFParams(
-        omega_1=omega_1, omega_2=omega_2,
-        kappa_1=kappa_1, kappa_2=kappa_2,
-        theta=theta, pi_u=pi_u,
-        mu_1_0=mu_1_0, sigma_1_0=sigma_1_0,
-        mu_2_0=mu_2_0, sigma_2_0=sigma_2_0,
-        mu_3_0=mu_3_0, sigma_3_0=sigma_3_0,
+        omega_1=omega_1,
+        omega_2=omega_2,
+        kappa_1=kappa_1,
+        kappa_2=kappa_2,
+        theta=theta,
+        pi_u=pi_u,
+        mu_1_0=mu_1_0,
+        sigma_1_0=sigma_1_0,
+        mu_2_0=mu_2_0,
+        sigma_2_0=sigma_2_0,
+        mu_3_0=mu_3_0,
+        sigma_3_0=sigma_3_0,
     )
     return continuous_hgf_surprise(observations, params)
 
@@ -118,10 +134,12 @@ def continuous_hgf_nll(
 # Gradient-based learning
 # ---------------------------------------------------------------------------
 
+
 def _try_import_optax():
     """Try to import optax, return None if unavailable."""
     try:
         import optax
+
         return optax
     except ImportError:
         return None
@@ -179,6 +197,7 @@ def learn_binary_hgf(
             if verbose and (epoch % 10 == 0 or epoch == num_epochs - 1):
                 print(f"  Epoch {epoch:4d}: NLL = {loss_val:.4f}")
     else:
+
         @jax.jit
         def sgd_step(omega_2):
             loss = binary_hgf_nll(omega_2, obs_jnp, mu_2_0_jnp, sigma_2_0_jnp)
@@ -251,9 +270,12 @@ def learn_continuous_hgf(
     )
     fixed = (
         jnp.array(pi_u),
-        jnp.array(mu_1_0), jnp.array(sigma_1_0),
-        jnp.array(mu_2_0), jnp.array(sigma_2_0),
-        jnp.array(mu_3_0), jnp.array(sigma_3_0),
+        jnp.array(mu_1_0),
+        jnp.array(sigma_1_0),
+        jnp.array(mu_2_0),
+        jnp.array(sigma_2_0),
+        jnp.array(mu_3_0),
+        jnp.array(sigma_3_0),
     )
 
     grad_fn = jax.grad(continuous_hgf_nll, argnums=0)
@@ -270,9 +292,7 @@ def learn_continuous_hgf(
             loss = continuous_hgf_nll(learnable, obs_jnp, fixed)
             grads = grad_fn(learnable, obs_jnp, fixed)
             updates, new_state = optimizer.update(grads, opt_state, learnable)
-            new_learnable = jax.tree.map(
-                lambda p, u: p + u, learnable, updates
-            )
+            new_learnable = jax.tree.map(lambda p, u: p + u, learnable, updates)
             return new_learnable, new_state, loss
 
         for epoch in range(num_epochs):
@@ -282,13 +302,12 @@ def learn_continuous_hgf(
             if verbose and (epoch % 10 == 0 or epoch == num_epochs - 1):
                 print(f"  Epoch {epoch:4d}: NLL = {loss_val:.4f}")
     else:
+
         @jax.jit
         def sgd_step(learnable):
             loss = continuous_hgf_nll(learnable, obs_jnp, fixed)
             grads = grad_fn(learnable, obs_jnp, fixed)
-            new_learnable = jax.tree.map(
-                lambda p, g: p - lr * g, learnable, grads
-            )
+            new_learnable = jax.tree.map(lambda p, g: p - lr * g, learnable, grads)
             return new_learnable, loss
 
         for epoch in range(num_epochs):
@@ -300,13 +319,17 @@ def learn_continuous_hgf(
 
     omega_1, omega_2, kappa_1, kappa_2, theta = learnable
     learned_params = ContinuousHGFParams(
-        omega_1=omega_1, omega_2=omega_2,
-        kappa_1=kappa_1, kappa_2=kappa_2,
-        theta=theta, pi_u=fixed[0],
-        mu_1_0=fixed[1], sigma_1_0=fixed[2],
-        mu_2_0=fixed[3], sigma_2_0=fixed[4],
-        mu_3_0=fixed[5], sigma_3_0=fixed[6],
+        omega_1=omega_1,
+        omega_2=omega_2,
+        kappa_1=kappa_1,
+        kappa_2=kappa_2,
+        theta=theta,
+        pi_u=fixed[0],
+        mu_1_0=fixed[1],
+        sigma_1_0=fixed[2],
+        mu_2_0=fixed[3],
+        sigma_2_0=fixed[4],
+        mu_3_0=fixed[5],
+        sigma_3_0=fixed[6],
     )
-    return ContinuousHGFLearningResult(
-        params=learned_params, loss_history=loss_history
-    )
+    return ContinuousHGFLearningResult(params=learned_params, loss_history=loss_history)

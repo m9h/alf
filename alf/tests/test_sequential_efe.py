@@ -38,16 +38,22 @@ def test_single_step_matches_analytic():
 
     for action in range(NUM_ACTIONS):
         # Analytic single-step EFE
-        g_analytic = float(jax_compute_efe_analytic(
-            jnp.array(A), jnp.array(B[:, :, action]),
-            jnp.array(C), jnp.array(D),
-        ))
+        g_analytic = float(
+            jax_compute_efe_analytic(
+                jnp.array(A),
+                jnp.array(B[:, :, action]),
+                jnp.array(C),
+                jnp.array(D),
+            )
+        )
 
         # Sequential EFE with T=1
         g_sequential = sequential_efe(A, B, C, D, np.array([action]))
 
         np.testing.assert_allclose(
-            g_sequential, g_analytic, atol=1e-10,
+            g_sequential,
+            g_analytic,
+            atol=1e-10,
             err_msg=(
                 f"Action {ACTION_NAMES[action]}: sequential={g_sequential:.6f} "
                 f"vs analytic={g_analytic:.6f}"
@@ -91,13 +97,17 @@ def test_cue_first_dominates_t2():
 
     # Cue-then-left and cue-then-right should be symmetric
     np.testing.assert_allclose(
-        g_cue_left, g_cue_right, atol=1e-10,
+        g_cue_left,
+        g_cue_right,
+        atol=1e-10,
         err_msg="Cue-then-left and cue-then-right should be symmetric",
     )
 
     # Left-direct and right-direct should also be symmetric
     np.testing.assert_allclose(
-        g_left_direct, g_right_direct, atol=1e-10,
+        g_left_direct,
+        g_right_direct,
+        atol=1e-10,
         err_msg="Direct left and direct right should be symmetric",
     )
 
@@ -121,7 +131,9 @@ def test_evaluate_all_policies():
         if policy[0, 0] == ACT_CUE and policy[1, 0] == ACT_LEFT:
             g_manual = sequential_efe(A, B, C, D, policy[:, 0])
             np.testing.assert_allclose(
-                G[i], g_manual, atol=1e-12,
+                G[i],
+                g_manual,
+                atol=1e-12,
                 err_msg=f"Policy {i} mismatch: {G[i]} vs {g_manual}",
             )
             break
@@ -155,7 +167,10 @@ def test_select_action():
     num_samples = 100
     for _ in range(num_samples):
         action, info = select_action_sequential(
-            gm, beliefs, gamma=4.0, rng=rng,
+            gm,
+            beliefs,
+            gamma=4.0,
+            rng=rng,
         )
         if action == ACT_CUE:
             cue_count += 1
@@ -196,13 +211,20 @@ def test_jax_matches_numpy():
     for i, policy in enumerate(gm.policies):
         action_seq = policy[:, 0]
         g_np = sequential_efe(A, B, C, D, action_seq)
-        g_jax = float(jax_sequential_efe(
-            jnp.array(A), jnp.array(B), jnp.array(C),
-            jnp.array(D), jnp.array(action_seq),
-        ))
+        g_jax = float(
+            jax_sequential_efe(
+                jnp.array(A),
+                jnp.array(B),
+                jnp.array(C),
+                jnp.array(D),
+                jnp.array(action_seq),
+            )
+        )
 
         np.testing.assert_allclose(
-            g_jax, g_np, atol=1e-6,
+            g_jax,
+            g_np,
+            atol=1e-6,
             err_msg=f"Policy {i} ({action_seq}): JAX={g_jax:.6f} vs numpy={g_np:.6f}",
         )
 
@@ -239,7 +261,6 @@ def test_jax_jit_works():
 
 def test_jax_vmap_over_policies():
     """Test that JAX version can be vmapped over policies."""
-    import jax
     import jax.numpy as jnp
     from alf.sequential_efe import (
         jax_sequential_efe,
@@ -266,7 +287,9 @@ def test_jax_vmap_over_policies():
     G_loop = np.array(G_loop)
 
     np.testing.assert_allclose(
-        np.array(G_vmap), G_loop, atol=1e-6,
+        np.array(G_vmap),
+        G_loop,
+        atol=1e-6,
         err_msg="Vmapped results should match loop results",
     )
 
@@ -288,7 +311,14 @@ def test_jax_select_action_sequential():
     key = jax.random.PRNGKey(42)
 
     selected_idx, probs, G = jax_select_action_sequential(
-        A_j, B_j, C_j, D_j, policies_j, E_j, 4.0, key,
+        A_j,
+        B_j,
+        C_j,
+        D_j,
+        policies_j,
+        E_j,
+        4.0,
+        key,
     )
 
     assert probs.shape == (gm.num_policies,)
@@ -312,4 +342,5 @@ def test_jax_select_action_sequential():
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "--tb=short"])

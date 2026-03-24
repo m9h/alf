@@ -13,100 +13,113 @@ import pytest
 
 # --- Context-dependent DM imports ---
 from alf.benchmarks.context_dm import (
-    build_context_dm_model, ContextDMEnv, run_context_dm,
+    build_context_dm_model,
+    ContextDMEnv,
+    run_context_dm,
     NUM_STATES as CDM_NUM_STATES,
     NUM_OBS as CDM_NUM_OBS,
     NUM_ACTIONS as CDM_NUM_ACTIONS,
     ACT_FIXATE as CDM_ACT_FIXATE,
     ACT_RESPOND_LEFT as CDM_ACT_RESPOND_LEFT,
     ACT_RESPOND_RIGHT as CDM_ACT_RESPOND_RIGHT,
-    OBS_FIXATION as CDM_OBS_FIXATION,
-    OBS_CTX_ATTEND_MOD1, OBS_CTX_ATTEND_MOD2,
-    OBS_STIM_LEFT_MOD1, OBS_STIM_RIGHT_MOD1,
-    OBS_STIM_LEFT_MOD2, OBS_STIM_RIGHT_MOD2,
-    OBS_REWARD as CDM_OBS_REWARD,
-    OBS_PUNISHMENT as CDM_OBS_PUNISHMENT,
+    OBS_CTX_ATTEND_MOD1,
+    OBS_CTX_ATTEND_MOD2,
+    OBS_STIM_LEFT_MOD1,
+    OBS_STIM_RIGHT_MOD1,
+    OBS_STIM_LEFT_MOD2,
+    OBS_STIM_RIGHT_MOD2,
     _build_A as cdm_build_A,
     _build_B as cdm_build_B,
-    _build_C as cdm_build_C,
     _build_D as cdm_build_D,
     _state_index as cdm_state_index,
     _decode_state as cdm_decode_state,
     _correct_response as cdm_correct_response,
     PHASE_FIX as CDM_PHASE_FIX,
     PHASE_STIM as CDM_PHASE_STIM,
-    PHASE_RESP as CDM_PHASE_RESP,
-    CTX_MOD1, CTX_MOD2,
+    CTX_MOD1,
+    CTX_MOD2,
     DIR_LEFT as CDM_DIR_LEFT,
     DIR_RIGHT as CDM_DIR_RIGHT,
 )
 
 # --- Delayed match imports ---
 from alf.benchmarks.delayed_match import (
-    build_delayed_match_model, DelayedMatchEnv, run_delayed_match,
+    build_delayed_match_model,
+    DelayedMatchEnv,
+    run_delayed_match,
     NUM_STATES as DMS_NUM_STATES,
     NUM_OBS as DMS_NUM_OBS,
     NUM_ACTIONS as DMS_NUM_ACTIONS,
     ACT_FIXATE as DMS_ACT_FIXATE,
-    ACT_RESPOND_MATCH, ACT_RESPOND_NONMATCH,
+    ACT_RESPOND_MATCH,
+    ACT_RESPOND_NONMATCH,
     OBS_FIXATION as DMS_OBS_FIXATION,
-    OBS_SAMPLE_LEFT, OBS_SAMPLE_RIGHT,
-    OBS_TEST_LEFT, OBS_TEST_RIGHT,
+    OBS_SAMPLE_LEFT,
+    OBS_SAMPLE_RIGHT,
+    OBS_TEST_LEFT,
+    OBS_TEST_RIGHT,
     OBS_REWARD as DMS_OBS_REWARD,
-    OBS_PUNISHMENT as DMS_OBS_PUNISHMENT,
     _build_A as dms_build_A,
     _build_B as dms_build_B,
-    _build_C as dms_build_C,
     _build_D as dms_build_D,
     _state_index as dms_state_index,
     _decode_state as dms_decode_state,
     _correct_response as dms_correct_response,
     PHASE_FIX as DMS_PHASE_FIX,
-    PHASE_SAMPLE, PHASE_DELAY, PHASE_TEST,
+    PHASE_SAMPLE,
+    PHASE_DELAY,
+    PHASE_TEST,
     PHASE_RESP as DMS_PHASE_RESP,
-    MATCH, NONMATCH,
+    MATCH,
+    NONMATCH,
     DIR_LEFT as DMS_DIR_LEFT,
     DIR_RIGHT as DMS_DIR_RIGHT,
 )
 
 # --- Go/NoGo imports ---
 from alf.benchmarks.go_nogo import (
-    build_go_nogo_model, GoNoGoEnv, run_go_nogo,
+    build_go_nogo_model,
+    GoNoGoEnv,
+    run_go_nogo,
     NUM_STATES as GNG_NUM_STATES,
     NUM_OBS as GNG_NUM_OBS,
     NUM_ACTIONS as GNG_NUM_ACTIONS,
     ACT_FIXATE as GNG_ACT_FIXATE,
     ACT_RESPOND_LEFT as GNG_ACT_RESPOND_LEFT,
     ACT_RESPOND_RIGHT as GNG_ACT_RESPOND_RIGHT,
-    OBS_FIXATION as GNG_OBS_FIXATION,
-    OBS_STIM_LEFT, OBS_STIM_RIGHT,
-    OBS_RULE_GO, OBS_RULE_NOGO, OBS_RULE_ANTI,
-    OBS_REWARD as GNG_OBS_REWARD,
-    OBS_PUNISHMENT as GNG_OBS_PUNISHMENT,
+    OBS_STIM_LEFT,
+    OBS_STIM_RIGHT,
+    OBS_RULE_GO,
+    OBS_RULE_NOGO,
+    OBS_RULE_ANTI,
     _build_A as gng_build_A,
     _build_B as gng_build_B,
-    _build_C as gng_build_C,
     _build_D as gng_build_D,
     _state_index as gng_state_index,
     _decode_state as gng_decode_state,
     _correct_response as gng_correct_response,
     PHASE_FIX as GNG_PHASE_FIX,
     PHASE_STIM as GNG_PHASE_STIM,
-    PHASE_RESP as GNG_PHASE_RESP,
-    RULE_GO, RULE_NOGO, RULE_ANTI,
+    RULE_GO,
+    RULE_NOGO,
+    RULE_ANTI,
     DIR_LEFT as GNG_DIR_LEFT,
     DIR_RIGHT as GNG_DIR_RIGHT,
 )
 
 # --- Battery imports ---
 from alf.benchmarks.cognitive_battery import (
-    run_battery, BATTERY, get_task_list, get_task_model,
+    run_battery,
+    BATTERY,
+    get_task_list,
+    get_task_model,
 )
 
 
 # ===================================================================
 # Helper: validate probability matrices
 # ===================================================================
+
 
 def _assert_valid_A(A, num_obs, num_states, name="A"):
     """Assert A is a valid likelihood matrix."""
@@ -116,7 +129,9 @@ def _assert_valid_A(A, num_obs, num_states, name="A"):
     assert np.all(A >= 0), f"{name} has negative entries"
     col_sums = A.sum(axis=0)
     np.testing.assert_allclose(
-        col_sums, 1.0, atol=1e-10,
+        col_sums,
+        1.0,
+        atol=1e-10,
         err_msg=f"{name} columns do not sum to 1",
     )
 
@@ -130,19 +145,21 @@ def _assert_valid_B(B, num_states, num_actions, name="B"):
     for a in range(num_actions):
         col_sums = B[:, :, a].sum(axis=0)
         np.testing.assert_allclose(
-            col_sums, 1.0, atol=1e-10,
+            col_sums,
+            1.0,
+            atol=1e-10,
             err_msg=f"{name}[:,:,{a}] columns do not sum to 1",
         )
 
 
 def _assert_valid_D(D, num_states, name="D"):
     """Assert D is a valid prior distribution."""
-    assert D.shape == (num_states,), (
-        f"{name} shape {D.shape} != ({num_states},)"
-    )
+    assert D.shape == (num_states,), f"{name} shape {D.shape} != ({num_states},)"
     assert np.all(D >= 0), f"{name} has negative entries"
     np.testing.assert_allclose(
-        D.sum(), 1.0, atol=1e-10,
+        D.sum(),
+        1.0,
+        atol=1e-10,
         err_msg=f"{name} does not sum to 1",
     )
 
@@ -151,8 +168,8 @@ def _assert_valid_D(D, num_states, name="D"):
 # Context-Dependent Decision Making tests
 # ===================================================================
 
-class TestContextDM:
 
+class TestContextDM:
     def test_state_encoding_roundtrip(self):
         """Test that state encoding and decoding are inverses."""
         for s in range(CDM_NUM_STATES):
@@ -241,11 +258,23 @@ class TestContextDM:
     def test_correct_response_logic(self):
         """Test the correct response mapping."""
         # Attend mod1: response follows mod1
-        assert cdm_correct_response(CDM_DIR_LEFT, CDM_DIR_RIGHT, CTX_MOD1) == CDM_ACT_RESPOND_LEFT
-        assert cdm_correct_response(CDM_DIR_RIGHT, CDM_DIR_LEFT, CTX_MOD1) == CDM_ACT_RESPOND_RIGHT
+        assert (
+            cdm_correct_response(CDM_DIR_LEFT, CDM_DIR_RIGHT, CTX_MOD1)
+            == CDM_ACT_RESPOND_LEFT
+        )
+        assert (
+            cdm_correct_response(CDM_DIR_RIGHT, CDM_DIR_LEFT, CTX_MOD1)
+            == CDM_ACT_RESPOND_RIGHT
+        )
         # Attend mod2: response follows mod2
-        assert cdm_correct_response(CDM_DIR_LEFT, CDM_DIR_RIGHT, CTX_MOD2) == CDM_ACT_RESPOND_RIGHT
-        assert cdm_correct_response(CDM_DIR_RIGHT, CDM_DIR_LEFT, CTX_MOD2) == CDM_ACT_RESPOND_LEFT
+        assert (
+            cdm_correct_response(CDM_DIR_LEFT, CDM_DIR_RIGHT, CTX_MOD2)
+            == CDM_ACT_RESPOND_RIGHT
+        )
+        assert (
+            cdm_correct_response(CDM_DIR_RIGHT, CDM_DIR_LEFT, CTX_MOD2)
+            == CDM_ACT_RESPOND_LEFT
+        )
 
     def test_environment_correct_response(self):
         """Test that the environment gives reward for correct response."""
@@ -310,8 +339,8 @@ class TestContextDM:
 # Delayed Match-to-Sample tests
 # ===================================================================
 
-class TestDelayedMatch:
 
+class TestDelayedMatch:
     def test_state_encoding_roundtrip(self):
         """Test that state encoding and decoding are inverses."""
         for s in range(DMS_NUM_STATES):
@@ -488,8 +517,8 @@ class TestDelayedMatch:
 # Go/NoGo with Anti tests
 # ===================================================================
 
-class TestGoNoGo:
 
+class TestGoNoGo:
     def test_state_encoding_roundtrip(self):
         """Test that state encoding and decoding are inverses."""
         for s in range(GNG_NUM_STATES):
@@ -642,8 +671,8 @@ class TestGoNoGo:
 # Cognitive Battery tests
 # ===================================================================
 
-class TestCognitiveBattery:
 
+class TestCognitiveBattery:
     def test_battery_registry(self):
         """Test that the battery registry has all expected tasks."""
         assert "context_dm" in BATTERY
@@ -687,7 +716,8 @@ class TestCognitiveBattery:
     def test_run_battery_subset(self):
         """Test running only a subset of tasks."""
         results = run_battery(
-            n_trials=3, seed=42,
+            n_trials=3,
+            seed=42,
             tasks=["context_dm", "go_nogo"],
         )
         assert "context_dm" in results
@@ -704,14 +734,18 @@ class TestCognitiveBattery:
 # Cross-task validation tests
 # ===================================================================
 
+
 class TestCrossTaskValidation:
     """Tests that apply uniformly across all tasks."""
 
-    @pytest.mark.parametrize("build_fn,n_states,n_obs,n_actions", [
-        (build_context_dm_model, CDM_NUM_STATES, CDM_NUM_OBS, CDM_NUM_ACTIONS),
-        (build_delayed_match_model, DMS_NUM_STATES, DMS_NUM_OBS, DMS_NUM_ACTIONS),
-        (build_go_nogo_model, GNG_NUM_STATES, GNG_NUM_OBS, GNG_NUM_ACTIONS),
-    ])
+    @pytest.mark.parametrize(
+        "build_fn,n_states,n_obs,n_actions",
+        [
+            (build_context_dm_model, CDM_NUM_STATES, CDM_NUM_OBS, CDM_NUM_ACTIONS),
+            (build_delayed_match_model, DMS_NUM_STATES, DMS_NUM_OBS, DMS_NUM_ACTIONS),
+            (build_go_nogo_model, GNG_NUM_STATES, GNG_NUM_OBS, GNG_NUM_ACTIONS),
+        ],
+    )
     def test_all_models_valid_distributions(self, build_fn, n_states, n_obs, n_actions):
         """All models should have valid probability distributions."""
         gm = build_fn()
@@ -719,11 +753,14 @@ class TestCrossTaskValidation:
         _assert_valid_B(gm.B[0], n_states, n_actions)
         _assert_valid_D(gm.D[0], n_states)
 
-    @pytest.mark.parametrize("build_fn", [
-        build_context_dm_model,
-        build_delayed_match_model,
-        build_go_nogo_model,
-    ])
+    @pytest.mark.parametrize(
+        "build_fn",
+        [
+            build_context_dm_model,
+            build_delayed_match_model,
+            build_go_nogo_model,
+        ],
+    )
     def test_all_models_have_reward_preference(self, build_fn):
         """All models should prefer reward over punishment in C."""
         gm = build_fn()
@@ -733,11 +770,14 @@ class TestCrossTaskValidation:
         assert C.max() > 0, "C should have positive preference (reward)"
         assert C.min() < 0, "C should have negative preference (punishment)"
 
-    @pytest.mark.parametrize("build_fn", [
-        build_context_dm_model,
-        build_delayed_match_model,
-        build_go_nogo_model,
-    ])
+    @pytest.mark.parametrize(
+        "build_fn",
+        [
+            build_context_dm_model,
+            build_delayed_match_model,
+            build_go_nogo_model,
+        ],
+    )
     def test_all_models_single_factor_single_modality(self, build_fn):
         """All task models should be single-factor, single-modality."""
         gm = build_fn()

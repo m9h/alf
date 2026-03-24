@@ -26,8 +26,6 @@ from alf.multitask import (
     NUM_OBS_FEEDBACK,
     PHASE_FIXATION,
     PHASE_STIMULUS,
-    PHASE_DELAY,
-    PHASE_RESPONSE,
     build_compositional_battery,
     build_simple_task_pair,
     multifactor_sequential_efe,
@@ -42,7 +40,11 @@ from alf.multitask_agent import MultitaskAgent
 
 
 def _make_simple_gm(
-    num_states=4, num_obs=4, num_actions=2, seed=42, T=1,
+    num_states=4,
+    num_obs=4,
+    num_actions=2,
+    seed=42,
+    T=1,
 ) -> GenerativeModel:
     """Build a simple single-factor GenerativeModel for testing."""
     rng = np.random.RandomState(seed)
@@ -174,7 +176,6 @@ class TestMultitaskGenerativeModelConstruction:
 
 
 class TestGetModelForTask:
-
     def test_returns_generative_model(self):
         gm_a = _make_simple_gm(seed=1)
         gm_b = _make_simple_gm(seed=2)
@@ -199,9 +200,7 @@ class TestGetModelForTask:
         # B: columns sum to 1 for each action
         B = model.B[0]
         for a in range(model.num_actions[0]):
-            np.testing.assert_allclose(
-                B[:, :, a].sum(axis=0), 1.0, atol=1e-10
-            )
+            np.testing.assert_allclose(B[:, :, a].sum(axis=0), 1.0, atol=1e-10)
 
         # D: sums to 1
         np.testing.assert_allclose(model.D[0].sum(), 1.0, atol=1e-10)
@@ -225,7 +224,6 @@ class TestGetModelForTask:
 
 
 class TestCompositionalModel:
-
     def test_construction_go_task(self):
         comp = CompositionalModel("Go")
         assert comp.task_name == "Go"
@@ -256,8 +254,10 @@ class TestCompositionalModel:
         for m, A_m in enumerate(comp.A):
             col_sums = A_m.sum(axis=0)
             np.testing.assert_allclose(
-                col_sums, 1.0, atol=1e-6,
-                err_msg=f"Modality {m} A matrix columns not normalized"
+                col_sums,
+                1.0,
+                atol=1e-6,
+                err_msg=f"Modality {m} A matrix columns not normalized",
             )
 
     def test_B_matrices_shape(self):
@@ -274,16 +274,17 @@ class TestCompositionalModel:
             for a in range(B_f.shape[-1]):
                 col_sums = B_f[:, :, a].sum(axis=0)
                 np.testing.assert_allclose(
-                    col_sums, 1.0, atol=1e-10,
-                    err_msg=f"Factor {f}, action {a} B matrix not normalized"
+                    col_sums,
+                    1.0,
+                    atol=1e-10,
+                    err_msg=f"Factor {f}, action {a} B matrix not normalized",
                 )
 
     def test_D_priors_normalized(self):
         comp = CompositionalModel("DelayAnti", num_context_states=2)
         for f, D_f in enumerate(comp.D):
             np.testing.assert_allclose(
-                D_f.sum(), 1.0, atol=1e-10,
-                err_msg=f"Factor {f} D prior not normalized"
+                D_f.sum(), 1.0, atol=1e-10, err_msg=f"Factor {f} D prior not normalized"
             )
 
     def test_D_phase_starts_at_fixation(self):
@@ -342,7 +343,6 @@ class TestCompositionalModel:
 
 
 class TestMultitaskAgentSwitching:
-
     def test_set_task(self):
         mtm = build_simple_task_pair()
         agent = MultitaskAgent(mtm)
@@ -369,7 +369,7 @@ class TestMultitaskAgentSwitching:
 
         # Run task_A and learn
         agent.set_task("task_A")
-        gm_a = mtm.get_model_for_task("task_A")
+        mtm.get_model_for_task("task_A")
         obs = [0]
         agent.step(obs)
         agent.learn(1.0)  # positive outcome -> habit update
@@ -382,9 +382,7 @@ class TestMultitaskAgentSwitching:
 
         # Switch back to task_A -- habits should be preserved
         agent.set_task("task_A")
-        np.testing.assert_array_equal(
-            agent._task_habits["task_A"], habits_a_after
-        )
+        np.testing.assert_array_equal(agent._task_habits["task_A"], habits_a_after)
 
     def test_set_unknown_task_raises(self):
         mtm = build_simple_task_pair()
@@ -417,7 +415,6 @@ class TestMultitaskAgentSwitching:
 
 
 class TestMultitaskAgentRunTrial:
-
     def test_run_trial_completes(self):
         mtm = build_simple_task_pair()
         agent = MultitaskAgent(mtm, seed=42)
@@ -468,7 +465,6 @@ class TestMultitaskAgentRunTrial:
 
 
 class TestTaskInference:
-
     def test_infer_task_returns_distribution(self):
         gm_a = _make_simple_gm(seed=1)
         gm_b = _make_simple_gm(seed=2)
@@ -512,7 +508,6 @@ class TestTaskInference:
 
 
 class TestMultifactorEFE:
-
     def test_single_factor_matches_sequential_efe(self):
         """Multi-factor EFE with 1 factor should match standard sequential EFE."""
         from alf.sequential_efe import sequential_efe
@@ -522,15 +517,13 @@ class TestMultifactorEFE:
         # Use the standard sequential_efe as reference
         for i, policy in enumerate(gm.policies):
             action_seq = policy[:, 0]
-            g_standard = sequential_efe(
-                gm.A[0], gm.B[0], gm.C[0], gm.D[0], action_seq
-            )
-            g_multi = multifactor_sequential_efe(
-                gm.A, gm.B, gm.C, gm.D, policy
-            )
+            g_standard = sequential_efe(gm.A[0], gm.B[0], gm.C[0], gm.D[0], action_seq)
+            g_multi = multifactor_sequential_efe(gm.A, gm.B, gm.C, gm.D, policy)
             np.testing.assert_allclose(
-                g_multi, g_standard, atol=1e-10,
-                err_msg=f"Policy {i}: multi={g_multi:.6f} vs standard={g_standard:.6f}"
+                g_multi,
+                g_standard,
+                atol=1e-10,
+                err_msg=f"Policy {i}: multi={g_multi:.6f} vs standard={g_standard:.6f}",
             )
 
     def test_multifactor_efe_finite(self):
@@ -563,7 +556,6 @@ class TestMultifactorEFE:
 
 
 class TestBatteryExecution:
-
     def test_run_battery_blocked(self):
         mtm = build_simple_task_pair()
         agent = MultitaskAgent(mtm, seed=42)
@@ -616,7 +608,6 @@ class TestBatteryExecution:
 
 
 class TestBuildSimpleTaskPair:
-
     def test_returns_multitask_model(self):
         mtm = build_simple_task_pair()
         assert isinstance(mtm, MultitaskGenerativeModel)
@@ -637,7 +628,6 @@ class TestBuildSimpleTaskPair:
 
 
 class TestAgentStateSummary:
-
     def test_get_state_summary(self):
         mtm = build_simple_task_pair()
         agent = MultitaskAgent(mtm, seed=42)
@@ -658,7 +648,6 @@ class TestAgentStateSummary:
 
 
 class TestBuildCompositionalBattery:
-
     def test_default_builds_all_20_tasks(self):
         mtm = build_compositional_battery(T=1)
         assert mtm.num_tasks == 20

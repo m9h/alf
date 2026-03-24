@@ -19,8 +19,6 @@ References:
         for normative modelling of big data. NeuroImage.
 """
 
-from typing import NamedTuple, Optional
-
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -29,6 +27,7 @@ import numpy as np
 # ---------------------------------------------------------------------------
 # SHASH distribution
 # ---------------------------------------------------------------------------
+
 
 def shash_transform(
     y: jnp.ndarray,
@@ -114,13 +113,13 @@ def shash_log_prob(
     # S(y) and C(y)
     arg = delta * asinh_s - epsilon
     S = jnp.sinh(arg)
-    C = delta * jnp.cosh(arg) / jnp.sqrt(standardized ** 2 + 1.0)
+    C = delta * jnp.cosh(arg) / jnp.sqrt(standardized**2 + 1.0)
 
     log_p = (
         jnp.log(jnp.clip(C, eps))
         - jnp.log(jnp.clip(sigma, eps))
         - 0.5 * jnp.log(2.0 * jnp.pi)
-        - 0.5 * S ** 2
+        - 0.5 * S**2
     )
 
     return log_p
@@ -129,6 +128,7 @@ def shash_log_prob(
 # ---------------------------------------------------------------------------
 # Warped BLR
 # ---------------------------------------------------------------------------
+
 
 def _shash_nll(
     shash_params: tuple[jnp.ndarray, jnp.ndarray],
@@ -225,7 +225,8 @@ def fit_blr_shash(
         shash_params = (epsilon, log_delta)
         for _ in range(num_opt_steps):
             grads = grad_fn(
-                shash_params, y_train_jnp,
+                shash_params,
+                y_train_jnp,
                 pred_train.y_pred + jnp.mean(y_train_jnp),
                 pred_train.y_std + jnp.std(y_train_jnp),
             )

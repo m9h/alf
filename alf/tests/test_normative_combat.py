@@ -10,12 +10,10 @@ Verifies that:
 """
 
 import numpy as np
-import jax
 import jax.numpy as jnp
 import pytest
 
 from alf.normative.combat import (
-    ComBatParams,
     fit_combat,
     apply_combat,
     combat_harmonize,
@@ -26,7 +24,6 @@ from alf.normative.bridge import (
     NormativeAIFResult,
     zscore_to_vfe,
     individual_free_energy,
-    individual_free_energy_vmap,
     deviation_profile_to_beliefs,
     deviation_mask,
     normative_aif_pipeline,
@@ -36,6 +33,7 @@ from alf.normative.bridge import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def generate_multisite_data(
     n_subjects_per_site: int = 100,
@@ -99,8 +97,7 @@ def generate_pipeline_data(
     n_test: int = 50,
     n_features: int = 5,
     seed: int = 42,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-           np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Generate data for the full pipeline test.
 
     Returns:
@@ -113,18 +110,22 @@ def generate_pipeline_data(
     x_test = rng.uniform(20, 80, n_test)
 
     # Brain measures with age-related trend
-    Y_train = np.column_stack([
-        np.sin(x_train / 20.0) * 10 + 50 + rng.normal(0, 3, n_train)
-        for _ in range(n_features)
-    ])
-    Y_test = np.column_stack([
-        np.sin(x_test / 20.0) * 10 + 50 + rng.normal(0, 3, n_test)
-        for _ in range(n_features)
-    ])
+    Y_train = np.column_stack(
+        [
+            np.sin(x_train / 20.0) * 10 + 50 + rng.normal(0, 3, n_train)
+            for _ in range(n_features)
+        ]
+    )
+    Y_test = np.column_stack(
+        [
+            np.sin(x_test / 20.0) * 10 + 50 + rng.normal(0, 3, n_test)
+            for _ in range(n_features)
+        ]
+    )
 
     # Site labels (2 sites, 3:1 split for train, alternating for test)
     site_train = np.zeros(n_train, dtype=int)
-    site_train[n_train // 4 * 3:] = 1
+    site_train[n_train // 4 * 3 :] = 1
 
     # Add site effect to site 1
     site_1_mask_train = site_train == 1
@@ -140,6 +141,7 @@ def generate_pipeline_data(
 # ---------------------------------------------------------------------------
 # ComBat tests
 # ---------------------------------------------------------------------------
+
 
 def test_combat_removes_site_effect():
     """Harmonized data should have negligible site mean differences."""
@@ -168,12 +170,12 @@ def test_combat_removes_site_effect():
         site_means_after.append(np.mean(Y_harm_np[mask], axis=0))
 
     # Max site mean difference before vs after
-    max_diff_before = np.max(np.abs(
-        np.array(site_means_before) - np.mean(site_means_before, axis=0)
-    ))
-    max_diff_after = np.max(np.abs(
-        np.array(site_means_after) - np.mean(site_means_after, axis=0)
-    ))
+    max_diff_before = np.max(
+        np.abs(np.array(site_means_before) - np.mean(site_means_before, axis=0))
+    )
+    max_diff_after = np.max(
+        np.abs(np.array(site_means_after) - np.mean(site_means_after, axis=0))
+    )
 
     assert max_diff_after < max_diff_before, (
         f"ComBat should reduce site differences: "
@@ -227,25 +229,19 @@ def test_combat_vmap():
     Y_jnp = jnp.array(Y)
     site_jnp = jnp.array(site_labels)
 
-    grand_means, gamma_star, delta_star, pooled_stds = fit_combat_vmap(
-        Y_jnp, site_jnp
-    )
+    grand_means, gamma_star, delta_star, pooled_stds = fit_combat_vmap(Y_jnp, site_jnp)
 
     n_features = 8
     n_sites = 2
 
-    assert grand_means.shape == (n_features,), (
-        f"grand_means shape: {grand_means.shape}"
-    )
+    assert grand_means.shape == (n_features,), f"grand_means shape: {grand_means.shape}"
     assert gamma_star.shape == (n_features, n_sites), (
         f"gamma_star shape: {gamma_star.shape}"
     )
     assert delta_star.shape == (n_features, n_sites), (
         f"delta_star shape: {delta_star.shape}"
     )
-    assert pooled_stds.shape == (n_features,), (
-        f"pooled_stds shape: {pooled_stds.shape}"
-    )
+    assert pooled_stds.shape == (n_features,), f"pooled_stds shape: {pooled_stds.shape}"
     assert jnp.all(jnp.isfinite(grand_means)), "grand_means not finite"
     assert jnp.all(jnp.isfinite(gamma_star)), "gamma_star not finite"
     assert jnp.all(delta_star > 0), "delta_star should be positive"
@@ -265,9 +261,7 @@ def test_combat_vmap_apply():
     Y_jnp = jnp.array(Y)
     site_jnp = jnp.array(site_labels)
 
-    grand_means, gamma_star, delta_star, pooled_stds = fit_combat_vmap(
-        Y_jnp, site_jnp
-    )
+    grand_means, gamma_star, delta_star, pooled_stds = fit_combat_vmap(Y_jnp, site_jnp)
     Y_harm = apply_combat_vmap(
         Y_jnp, site_jnp, grand_means, gamma_star, delta_star, pooled_stds
     )
@@ -279,9 +273,7 @@ def test_combat_vmap_apply():
     mean_1 = np.mean(Y_harm_np[site_labels == 1], axis=0)
     max_diff = np.max(np.abs(mean_0 - mean_1))
 
-    assert max_diff < 2.0, (
-        f"Vmapped ComBat should reduce site diff, got {max_diff:.3f}"
-    )
+    assert max_diff < 2.0, f"Vmapped ComBat should reduce site diff, got {max_diff:.3f}"
 
 
 def test_combat_roundtrip():
@@ -369,9 +361,7 @@ def test_combat_harmonize_convenience():
     site_train = jnp.array(site_labels[:n_train])
     site_test = jnp.array(site_labels[n_train:])
 
-    Y_train_harm, Y_test_harm = combat_harmonize(
-        Y_train, site_train, Y_test, site_test
-    )
+    Y_train_harm, Y_test_harm = combat_harmonize(Y_train, site_train, Y_test, site_test)
 
     assert Y_train_harm.shape == Y_train.shape
     assert Y_test_harm.shape == Y_test.shape
@@ -383,27 +373,37 @@ def test_combat_harmonize_convenience():
 # Bridge tests: Z-score -> VFE
 # ---------------------------------------------------------------------------
 
+
 def test_zscore_to_vfe_known_values():
     """Known Z-scores should give correct VFE values."""
     # Z = 0 -> VFE = 0.5 * log(2*pi) ~ 0.9189
     vfe_0 = zscore_to_vfe(jnp.array(0.0))
     expected_0 = 0.5 * np.log(2 * np.pi)
-    np.testing.assert_allclose(float(vfe_0), expected_0, atol=1e-5,
-        err_msg="VFE at z=0 should be 0.5*log(2*pi)"
+    np.testing.assert_allclose(
+        float(vfe_0),
+        expected_0,
+        atol=1e-5,
+        err_msg="VFE at z=0 should be 0.5*log(2*pi)",
     )
 
     # Z = 1 -> VFE = 0.5 + 0.5*log(2*pi) ~ 1.4189
     vfe_1 = zscore_to_vfe(jnp.array(1.0))
     expected_1 = 0.5 + 0.5 * np.log(2 * np.pi)
-    np.testing.assert_allclose(float(vfe_1), expected_1, atol=1e-5,
-        err_msg="VFE at z=1 should be 0.5 + 0.5*log(2*pi)"
+    np.testing.assert_allclose(
+        float(vfe_1),
+        expected_1,
+        atol=1e-5,
+        err_msg="VFE at z=1 should be 0.5 + 0.5*log(2*pi)",
     )
 
     # Z = -2 -> VFE = 2.0 + 0.5*log(2*pi) ~ 2.9189
     vfe_neg2 = zscore_to_vfe(jnp.array(-2.0))
     expected_neg2 = 2.0 + 0.5 * np.log(2 * np.pi)
-    np.testing.assert_allclose(float(vfe_neg2), expected_neg2, atol=1e-5,
-        err_msg="VFE at z=-2 should be 2.0 + 0.5*log(2*pi)"
+    np.testing.assert_allclose(
+        float(vfe_neg2),
+        expected_neg2,
+        atol=1e-5,
+        err_msg="VFE at z=-2 should be 2.0 + 0.5*log(2*pi)",
     )
 
 
@@ -413,8 +413,11 @@ def test_zscore_to_vfe_symmetry():
     vfe_pos = zscore_to_vfe(z)
     vfe_neg = zscore_to_vfe(-z)
 
-    np.testing.assert_allclose(np.array(vfe_pos), np.array(vfe_neg), atol=1e-6,
-        err_msg="VFE should be symmetric in z"
+    np.testing.assert_allclose(
+        np.array(vfe_pos),
+        np.array(vfe_neg),
+        atol=1e-6,
+        err_msg="VFE should be symmetric in z",
     )
 
 
@@ -441,8 +444,11 @@ def test_individual_free_energy_matches_manual():
     #       = 0.5 * log(8*pi) + 0.5
     expected = 0.5 * np.log(2 * np.pi * 4.0) + 0.5 * (5.0 - 3.0) ** 2 / 4.0
 
-    np.testing.assert_allclose(float(fe), expected, atol=1e-5,
-        err_msg="Individual VFE should match analytical formula"
+    np.testing.assert_allclose(
+        float(fe),
+        expected,
+        atol=1e-5,
+        err_msg="Individual VFE should match analytical formula",
     )
 
 
@@ -456,8 +462,11 @@ def test_individual_free_energy_zero_deviation():
     # Just the complexity: 0.5 * log(2*pi*sigma^2)
     expected = 0.5 * np.log(2 * np.pi * 2.0)
 
-    np.testing.assert_allclose(float(fe), expected, atol=1e-5,
-        err_msg="VFE at zero deviation should be the complexity term only"
+    np.testing.assert_allclose(
+        float(fe),
+        expected,
+        atol=1e-5,
+        err_msg="VFE at zero deviation should be the complexity term only",
     )
 
 
@@ -472,14 +481,18 @@ def test_individual_free_energy_consistency_with_zscore():
     z = (y_obs - y_pred) / jnp.sqrt(y_var)
     vfe_from_z = zscore_to_vfe(z)
 
-    np.testing.assert_allclose(float(fe), float(vfe_from_z), atol=1e-5,
-        err_msg="Individual VFE with sigma=1 should match zscore_to_vfe"
+    np.testing.assert_allclose(
+        float(fe),
+        float(vfe_from_z),
+        atol=1e-5,
+        err_msg="Individual VFE with sigma=1 should match zscore_to_vfe",
     )
 
 
 # ---------------------------------------------------------------------------
 # Deviation profile tests
 # ---------------------------------------------------------------------------
+
 
 def test_deviation_profile_basic():
     """Outlier regions should have high P(Deviant)."""
@@ -513,10 +526,12 @@ def test_deviation_profile_basic():
 
 def test_deviation_profile_batch():
     """Deviation profile should work for batched Z-scores."""
-    z = jnp.array([
-        [0.0, 3.0],
-        [-3.0, 0.5],
-    ])
+    z = jnp.array(
+        [
+            [0.0, 3.0],
+            [-3.0, 0.5],
+        ]
+    )
 
     beliefs = deviation_profile_to_beliefs(z, threshold=2.0)
 
@@ -538,22 +553,26 @@ def test_deviation_mask_symmetry():
     z = jnp.array([2.5, -2.5])
     mask = deviation_mask(z, threshold=2.0)
 
-    assert bool(mask[0]) == True
-    assert bool(mask[1]) == True
+    assert bool(mask[0])
+    assert bool(mask[1])
 
 
 # ---------------------------------------------------------------------------
 # Full pipeline test
 # ---------------------------------------------------------------------------
 
+
 def test_full_pipeline():
     """End-to-end pipeline: ComBat -> BLR -> Z-scores -> VFE."""
-    x_train, Y_train, x_test, Y_test, site_train, site_test = (
-        generate_pipeline_data(n_train=150, n_test=50, n_features=5, seed=42)
+    x_train, Y_train, x_test, Y_test, site_train, site_test = generate_pipeline_data(
+        n_train=150, n_test=50, n_features=5, seed=42
     )
 
     result = normative_aif_pipeline(
-        x_train, Y_train, x_test, Y_test,
+        x_train,
+        Y_train,
+        x_test,
+        Y_test,
         site_train=site_train,
         site_test=site_test,
         n_basis=6,
@@ -568,9 +587,7 @@ def test_full_pipeline():
     assert result.z_scores.shape == (n_test, n_features), (
         f"z_scores shape: {result.z_scores.shape}"
     )
-    assert result.vfe.shape == (n_test, n_features), (
-        f"vfe shape: {result.vfe.shape}"
-    )
+    assert result.vfe.shape == (n_test, n_features), f"vfe shape: {result.vfe.shape}"
     assert result.vfe_total.shape == (n_test,), (
         f"vfe_total shape: {result.vfe_total.shape}"
     )
@@ -596,12 +613,15 @@ def test_full_pipeline():
 
 def test_full_pipeline_without_combat():
     """Pipeline should work without site labels (skip ComBat)."""
-    x_train, Y_train, x_test, Y_test, _, _ = (
-        generate_pipeline_data(n_train=100, n_test=30, n_features=3, seed=123)
+    x_train, Y_train, x_test, Y_test, _, _ = generate_pipeline_data(
+        n_train=100, n_test=30, n_features=3, seed=123
     )
 
     result = normative_aif_pipeline(
-        x_train, Y_train, x_test, Y_test,
+        x_train,
+        Y_train,
+        x_test,
+        Y_test,
         site_train=None,
         site_test=None,
         n_basis=6,
@@ -621,7 +641,7 @@ def test_vfe_increases_with_deviation():
     for i in range(len(vfe_np) - 1):
         assert vfe_np[i + 1] > vfe_np[i], (
             f"VFE should increase: VFE({float(z[i]):.1f})={vfe_np[i]:.4f} >= "
-            f"VFE({float(z[i+1]):.1f})={vfe_np[i+1]:.4f}"
+            f"VFE({float(z[i + 1]):.1f})={vfe_np[i + 1]:.4f}"
         )
 
 

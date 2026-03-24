@@ -92,9 +92,15 @@ NUM_ACTIONS = 3
 
 ACTION_NAMES = ["fixate", "respond_left", "respond_right"]
 OBS_NAMES = [
-    "fixation", "stim_L_mod1", "stim_R_mod1",
-    "stim_L_mod2", "stim_R_mod2",
-    "ctx_mod1", "ctx_mod2", "reward", "punishment",
+    "fixation",
+    "stim_L_mod1",
+    "stim_R_mod1",
+    "stim_L_mod2",
+    "stim_R_mod2",
+    "ctx_mod1",
+    "ctx_mod2",
+    "reward",
+    "punishment",
 ]
 
 
@@ -335,7 +341,10 @@ class ContextDMEnv:
         # else: PHASE_RESP is absorbing
 
         self.true_state = _state_index(
-            self.mod1, self.mod2, self.ctx, self.phase,
+            self.mod1,
+            self.mod2,
+            self.ctx,
+            self.phase,
         )
 
         obs = self._observe()
@@ -359,20 +368,20 @@ class ContextDMEnv:
             if self.rng.random() < 0.5:
                 return OBS_FIXATION
             else:
-                return (OBS_CTX_ATTEND_MOD1
-                        if self.ctx == CTX_MOD1
-                        else OBS_CTX_ATTEND_MOD2)
+                return (
+                    OBS_CTX_ATTEND_MOD1 if self.ctx == CTX_MOD1 else OBS_CTX_ATTEND_MOD2
+                )
 
         elif self.phase == PHASE_STIM:
             # During stimulus, randomly emit one of the two modality obs
             if self.rng.random() < 0.5:
-                return (OBS_STIM_LEFT_MOD1
-                        if self.mod1 == DIR_LEFT
-                        else OBS_STIM_RIGHT_MOD1)
+                return (
+                    OBS_STIM_LEFT_MOD1 if self.mod1 == DIR_LEFT else OBS_STIM_RIGHT_MOD1
+                )
             else:
-                return (OBS_STIM_LEFT_MOD2
-                        if self.mod2 == DIR_LEFT
-                        else OBS_STIM_RIGHT_MOD2)
+                return (
+                    OBS_STIM_LEFT_MOD2 if self.mod2 == DIR_LEFT else OBS_STIM_RIGHT_MOD2
+                )
 
         elif self.phase == PHASE_RESP:
             correct_action = _correct_response(self.mod1, self.mod2, self.ctx)
@@ -421,11 +430,13 @@ def run_context_dm(
         context = "mod1" if rng.random() < 0.5 else "mod2"
 
         # Congruent = both modalities point same direction
-        congruent = (mod1_dir == mod2_dir)
+        congruent = mod1_dir == mod2_dir
 
         env = ContextDMEnv(
-            mod1_dir=mod1_dir, mod2_dir=mod2_dir,
-            context=context, seed=seed + trial,
+            mod1_dir=mod1_dir,
+            mod2_dir=mod2_dir,
+            context=context,
+            seed=seed + trial,
         )
 
         agent.reset()
@@ -443,7 +454,7 @@ def run_context_dm(
                 break
 
         # Check if agent used context correctly
-        correct_action = _correct_response(
+        _correct_response(
             DIR_LEFT if mod1_dir == "left" else DIR_RIGHT,
             DIR_LEFT if mod2_dir == "left" else DIR_RIGHT,
             CTX_MOD1 if context == "mod1" else CTX_MOD2,
@@ -481,11 +492,13 @@ def run_context_dm(
 
     cong_acc = (
         sum(1 for r in congruent_trials if r["correct"]) / len(congruent_trials)
-        if congruent_trials else 0.0
+        if congruent_trials
+        else 0.0
     )
     incong_acc = (
         sum(1 for r in incongruent_trials if r["correct"]) / len(incongruent_trials)
-        if incongruent_trials else 0.0
+        if incongruent_trials
+        else 0.0
     )
 
     # Context use: on incongruent trials, above-chance performance indicates

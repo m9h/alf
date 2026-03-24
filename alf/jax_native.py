@@ -160,10 +160,7 @@ class BatchAgent:
         self.gamma = gamma
         self.key = jax.random.PRNGKey(seed)
 
-        self.beliefs = [
-            jnp.tile(jnp.array(d), (batch_size, 1))
-            for d in gm.D
-        ]
+        self.beliefs = [jnp.tile(jnp.array(d), (batch_size, 1)) for d in gm.D]
 
         self.E = jnp.tile(jnp.array(gm.E), (batch_size, 1))
 
@@ -194,7 +191,9 @@ class BatchAgent:
             Tuple of (actions, info_dict).
         """
         if self.gm.num_factors != 1 or self.gm.num_modalities != 1:
-            raise ValueError("step_analytic only supports single-factor, single-modality")
+            raise ValueError(
+                "step_analytic only supports single-factor, single-modality"
+            )
 
         A = self.A_jax[0]
         B = self.B_jax[0]
@@ -222,9 +221,9 @@ class BatchAgent:
 
         # Select policy from posterior over policies.
         # selected_indices shape: (batch_size,) -- indices into policies
-        selected_indices, probs = jax.vmap(
-            jax_select_action, in_axes=(0, 0, None, 0)
-        )(G_batch, self.E, self.gamma, keys)
+        selected_indices, probs = jax.vmap(jax_select_action, in_axes=(0, 0, None, 0))(
+            G_batch, self.E, self.gamma, keys
+        )
 
         # Extract the first action from each selected policy
         actions = self.policies_jax[selected_indices, 0]
@@ -242,13 +241,10 @@ class BatchAgent:
             outcomes: Outcome valences, shape (batch_size,).
             actions: Actions taken, shape (batch_size,).
         """
-        self.E = jax.vmap(
-            jax_update_habits, in_axes=(0, 0, 0, None)
-        )(self.E, jnp.array(actions), jnp.array(outcomes), 0.1)
+        self.E = jax.vmap(jax_update_habits, in_axes=(0, 0, 0, None))(
+            self.E, jnp.array(actions), jnp.array(outcomes), 0.1
+        )
 
     def reset(self) -> None:
         """Reset all agents to prior beliefs."""
-        self.beliefs = [
-            jnp.tile(jnp.array(d), (self.batch_size, 1))
-            for d in self.gm.D
-        ]
+        self.beliefs = [jnp.tile(jnp.array(d), (self.batch_size, 1)) for d in self.gm.D]

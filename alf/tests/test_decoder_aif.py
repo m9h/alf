@@ -27,7 +27,6 @@ from alf.deep_aif import (
     init_gaussian_decoder,
     init_transition,
     learn_decoder_model,
-    predict_transition,
 )
 from alf.learning import generate_data
 
@@ -35,6 +34,7 @@ from alf.learning import generate_data
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def model_spec():
@@ -80,32 +80,49 @@ def synthetic_data():
     num_states = 3
     num_actions = 2
 
-    A = np.array([
-        [0.85, 0.05, 0.05],
-        [0.05, 0.05, 0.05],
-        [0.05, 0.85, 0.05],
-        [0.00, 0.00, 0.00],
-        [0.05, 0.05, 0.85],
-    ], dtype=np.float64)
+    A = np.array(
+        [
+            [0.85, 0.05, 0.05],
+            [0.05, 0.05, 0.05],
+            [0.05, 0.85, 0.05],
+            [0.00, 0.00, 0.00],
+            [0.05, 0.05, 0.85],
+        ],
+        dtype=np.float64,
+    )
     A[3, :] = 1.0 - A[:3, :].sum(axis=0) - A[4, :]
     A = np.clip(A, 0.001, None)
     A = A / A.sum(axis=0, keepdims=True)
 
     B = np.zeros((num_states, num_states, num_actions), dtype=np.float64)
-    B[1, 0, 0] = 0.9; B[0, 0, 0] = 0.05; B[2, 0, 0] = 0.05
-    B[2, 1, 0] = 0.9; B[0, 1, 0] = 0.05; B[1, 1, 0] = 0.05
-    B[0, 2, 0] = 0.9; B[1, 2, 0] = 0.05; B[2, 2, 0] = 0.05
-    B[0, 0, 1] = 0.9; B[1, 0, 1] = 0.05; B[2, 0, 1] = 0.05
-    B[1, 1, 1] = 0.9; B[0, 1, 1] = 0.05; B[2, 1, 1] = 0.05
-    B[2, 2, 1] = 0.9; B[0, 2, 1] = 0.05; B[1, 2, 1] = 0.05
+    B[1, 0, 0] = 0.9
+    B[0, 0, 0] = 0.05
+    B[2, 0, 0] = 0.05
+    B[2, 1, 0] = 0.9
+    B[0, 1, 0] = 0.05
+    B[1, 1, 0] = 0.05
+    B[0, 2, 0] = 0.9
+    B[1, 2, 0] = 0.05
+    B[2, 2, 0] = 0.05
+    B[0, 0, 1] = 0.9
+    B[1, 0, 1] = 0.05
+    B[2, 0, 1] = 0.05
+    B[1, 1, 1] = 0.9
+    B[0, 1, 1] = 0.05
+    B[2, 1, 1] = 0.05
+    B[2, 2, 1] = 0.9
+    B[0, 2, 1] = 0.05
+    B[1, 2, 1] = 0.05
 
     D = np.array([1.0 / 3, 1.0 / 3, 1.0 / 3])
 
     T = 500
     key = jax.random.PRNGKey(99)
     actions_seq = np.array(
-        [int(jax.random.randint(k, (), 0, num_actions))
-         for k in jax.random.split(key, T)]
+        [
+            int(jax.random.randint(k, (), 0, num_actions))
+            for k in jax.random.split(key, T)
+        ]
     )
 
     observations, states = generate_data(A, B, D, actions_seq, seed=123)
@@ -113,8 +130,12 @@ def synthetic_data():
     actions_padded = np.concatenate([actions_seq, [0]])
 
     return dict(
-        A=A, B=B, D=D,
-        num_obs=num_obs, num_states=num_states, num_actions=num_actions,
+        A=A,
+        B=B,
+        D=D,
+        num_obs=num_obs,
+        num_states=num_states,
+        num_actions=num_actions,
         observations=observations,
         obs_onehot=obs_onehot,
         actions=actions_padded,
@@ -126,8 +147,8 @@ def synthetic_data():
 # Test 1: Decoder init and forward pass produce correct shapes
 # ---------------------------------------------------------------------------
 
-class TestDecoderShapes:
 
+class TestDecoderShapes:
     def test_decoder_init_shapes(self, model_spec):
         """Decoder init produces correct number of layers and shapes."""
         key = jax.random.PRNGKey(0)
@@ -188,8 +209,8 @@ class TestDecoderShapes:
 # Test 2: get_likelihood_matrix() produces valid (obs_dim, num_states) matrix
 # ---------------------------------------------------------------------------
 
-class TestLikelihoodMatrix:
 
+class TestLikelihoodMatrix:
     def test_shape(self, decoder_params, model_spec):
         """Likelihood matrix has shape (obs_dim, num_states)."""
         A = DecoderGenerativeModel.get_likelihood_matrix(
@@ -225,8 +246,8 @@ class TestLikelihoodMatrix:
 # Test 3: infer_states() produces valid posterior
 # ---------------------------------------------------------------------------
 
-class TestInferStates:
 
+class TestInferStates:
     def test_posterior_shape(self, decoder_params, model_spec):
         """Posterior has shape (num_states,)."""
         obs = jax.nn.one_hot(0, model_spec["obs_dim"])
@@ -277,8 +298,8 @@ class TestInferStates:
 # Test 4: decoder_analytic_nll() is differentiable (jax.grad works)
 # ---------------------------------------------------------------------------
 
-class TestDecoderDifferentiability:
 
+class TestDecoderDifferentiability:
     def test_grad_decoder(self, decoder_params, transition_params, model_spec):
         """jax.grad works w.r.t. decoder_params."""
         T = 10
@@ -288,8 +309,13 @@ class TestDecoderDifferentiability:
 
         grad_fn = jax.grad(decoder_analytic_nll, argnums=0)
         grads = grad_fn(
-            decoder_params, transition_params, D, obs, actions,
-            model_spec["num_states"], model_spec["num_actions"],
+            decoder_params,
+            transition_params,
+            D,
+            obs,
+            actions,
+            model_spec["num_states"],
+            model_spec["num_actions"],
         )
 
         assert len(grads) == len(decoder_params)
@@ -307,8 +333,13 @@ class TestDecoderDifferentiability:
 
         grad_fn = jax.grad(decoder_analytic_nll, argnums=1)
         grads = grad_fn(
-            decoder_params, transition_params, D, obs, actions,
-            model_spec["num_states"], model_spec["num_actions"],
+            decoder_params,
+            transition_params,
+            D,
+            obs,
+            actions,
+            model_spec["num_states"],
+            model_spec["num_actions"],
         )
 
         assert len(grads) == len(transition_params)
@@ -325,8 +356,13 @@ class TestDecoderDifferentiability:
 
         grad_fn = jax.grad(decoder_analytic_nll, argnums=(0, 1))
         grad_dec, grad_trans = grad_fn(
-            decoder_params, transition_params, D, obs, actions,
-            model_spec["num_states"], model_spec["num_actions"],
+            decoder_params,
+            transition_params,
+            D,
+            obs,
+            actions,
+            model_spec["num_states"],
+            model_spec["num_actions"],
         )
 
         assert len(grad_dec) == len(decoder_params)
@@ -341,8 +377,13 @@ class TestDecoderDifferentiability:
         D = jnp.ones(model_spec["num_states"]) / model_spec["num_states"]
 
         nll = decoder_analytic_nll(
-            decoder_params, transition_params, D, obs, actions,
-            model_spec["num_states"], model_spec["num_actions"],
+            decoder_params,
+            transition_params,
+            D,
+            obs,
+            actions,
+            model_spec["num_states"],
+            model_spec["num_actions"],
         )
         assert jnp.isfinite(nll)
         assert nll.shape == ()
@@ -360,12 +401,22 @@ class TestDecoderDifferentiability:
         )
 
         nll_eager = decoder_analytic_nll(
-            decoder_params, transition_params, D, obs, actions,
-            model_spec["num_states"], model_spec["num_actions"],
+            decoder_params,
+            transition_params,
+            D,
+            obs,
+            actions,
+            model_spec["num_states"],
+            model_spec["num_actions"],
         )
         nll_jit = jit_nll(
-            decoder_params, transition_params, D, obs, actions,
-            model_spec["num_states"], model_spec["num_actions"],
+            decoder_params,
+            transition_params,
+            D,
+            obs,
+            actions,
+            model_spec["num_states"],
+            model_spec["num_actions"],
         )
 
         assert jnp.allclose(nll_eager, nll_jit, atol=1e-5)
@@ -375,8 +426,8 @@ class TestDecoderDifferentiability:
 # Test 5: learn_decoder_model() on synthetic data
 # ---------------------------------------------------------------------------
 
-class TestDecoderTraining:
 
+class TestDecoderTraining:
     def test_loss_decreases(self, synthetic_data):
         """Training loop reduces NLL over epochs."""
         result = learn_decoder_model(
@@ -466,8 +517,8 @@ class TestDecoderTraining:
 # Test 6: Gaussian decoder with continuous observations
 # ---------------------------------------------------------------------------
 
-class TestGaussianDecoder:
 
+class TestGaussianDecoder:
     def test_init_shapes(self, model_spec):
         """Gaussian decoder init produces correct output dimension."""
         key = jax.random.PRNGKey(0)
@@ -592,13 +643,16 @@ class TestGaussianDecoder:
 # Test: DecoderGenerativeModel class integration
 # ---------------------------------------------------------------------------
 
-class TestDecoderGenerativeModel:
 
+class TestDecoderGenerativeModel:
     def test_init(self):
         """DecoderGenerativeModel initializes without error."""
         dgm = DecoderGenerativeModel(
-            obs_dim=10, num_states=4, num_actions=3,
-            decoder_hidden=[16], transition_hidden=[16],
+            obs_dim=10,
+            num_states=4,
+            num_actions=3,
+            decoder_hidden=[16],
+            transition_hidden=[16],
             seed=0,
         )
         assert len(dgm.decoder_params) == 2  # 1 hidden + 1 output
@@ -607,8 +661,11 @@ class TestDecoderGenerativeModel:
     def test_likelihood_matrix_and_transition(self):
         """get_likelihood_matrix and get_transition work correctly."""
         dgm = DecoderGenerativeModel(
-            obs_dim=5, num_states=3, num_actions=2,
-            decoder_hidden=[16, 16], transition_hidden=[16, 16],
+            obs_dim=5,
+            num_states=3,
+            num_actions=2,
+            decoder_hidden=[16, 16],
+            transition_hidden=[16, 16],
         )
 
         A = dgm.get_likelihood_matrix(dgm.decoder_params, dgm.num_states)
@@ -625,14 +682,14 @@ class TestDecoderGenerativeModel:
     def test_infer_states_from_model(self):
         """infer_states produces valid posterior through the model."""
         dgm = DecoderGenerativeModel(
-            obs_dim=5, num_states=3, num_actions=2,
+            obs_dim=5,
+            num_states=3,
+            num_actions=2,
         )
 
         obs = jax.nn.one_hot(0, 5)
         prior = jnp.ones(3) / 3.0
-        posterior = dgm.infer_states(
-            dgm.decoder_params, obs, prior, dgm.num_states
-        )
+        posterior = dgm.infer_states(dgm.decoder_params, obs, prior, dgm.num_states)
         assert posterior.shape == (3,)
         assert jnp.allclose(jnp.sum(posterior), 1.0, atol=1e-5)
         assert jnp.all(posterior >= 0.0)

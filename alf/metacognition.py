@@ -40,7 +40,7 @@ References:
         Journal of Mathematical Psychology.
 """
 
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 import jax
 import jax.numpy as jnp
@@ -54,6 +54,7 @@ from alf.generative_model import GenerativeModel
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 class SDTCounts(NamedTuple):
     """Response counts for metacognitive SDT analysis.
 
@@ -63,6 +64,7 @@ class SDTCounts(NamedTuple):
         nR_S2: Response counts for stimulus=2 trials, shape (2*nRatings,).
             Same ordering as nR_S1.
     """
+
     nR_S1: np.ndarray
     nR_S2: np.ndarray
 
@@ -76,6 +78,7 @@ class MetaDResult(NamedTuple):
         m_ratio: Metacognitive efficiency (meta-d'/d').
         c: Type 1 criterion.
     """
+
     d_prime: float
     meta_d: float
     m_ratio: float
@@ -86,15 +89,18 @@ class MetaDResult(NamedTuple):
 # Type 1 SDT
 # ---------------------------------------------------------------------------
 
+
 def _phi(x: np.ndarray) -> np.ndarray:
     """Standard normal CDF (Phi function)."""
     from scipy.stats import norm
+
     return norm.cdf(x)
 
 
 def _phi_inv(p: np.ndarray) -> np.ndarray:
     """Inverse standard normal CDF (probit function)."""
     from scipy.stats import norm
+
     return norm.ppf(p)
 
 
@@ -166,6 +172,7 @@ def compute_type1_from_counts(
 # Meta-d' estimation (maximum likelihood, single subject)
 # ---------------------------------------------------------------------------
 
+
 def _sdt_expected_counts(
     d: float,
     c: float,
@@ -186,7 +193,7 @@ def _sdt_expected_counts(
         Tuple of (expected_nR_S1, expected_nR_S2).
     """
     n_criteria = len(criteria)
-    n_ratings = (n_criteria + 1) // 2
+    (n_criteria + 1) // 2
 
     # Cumulative probabilities at each criterion
     # For S1 (noise) distribution: N(0, 1) shifted by -d/2 relative to criterion
@@ -225,7 +232,7 @@ def fit_meta_d_mle(
 
     nR_S1 = np.asarray(nR_S1, dtype=np.float64)
     nR_S2 = np.asarray(nR_S2, dtype=np.float64)
-    n_ratings = len(nR_S1) // 2
+    len(nR_S1) // 2
 
     # Type 1 performance
     d_prime, c = compute_type1_from_counts(nR_S1, nR_S2)
@@ -259,9 +266,7 @@ def fit_meta_d_mle(
         # Multinomial log-likelihood (proportional)
         return -float(np.sum(observed * np.log(expected / expected.sum())))
 
-    result = minimize_scalar(
-        neg_log_likelihood, bounds=(-5.0, 5.0), method='bounded'
-    )
+    result = minimize_scalar(neg_log_likelihood, bounds=(-5.0, 5.0), method="bounded")
     meta_d = result.x
 
     # Compute m-ratio
@@ -279,6 +284,7 @@ def fit_meta_d_mle(
 # ---------------------------------------------------------------------------
 # Hierarchical Bayesian meta-d' (NumPyro)
 # ---------------------------------------------------------------------------
+
 
 def fit_meta_d_bayesian(
     nR_S1: np.ndarray,
@@ -396,6 +402,7 @@ def fit_meta_d_bayesian(
 # Precision bridge: m-ratio -> agent gamma
 # ---------------------------------------------------------------------------
 
+
 def m_ratio_to_gamma(
     m_ratio: float,
     base_gamma: float = 4.0,
@@ -463,6 +470,7 @@ def update_gamma_from_confidence(
 # EFE Monitor: online tracking of prediction accuracy and calibration
 # ---------------------------------------------------------------------------
 
+
 class EFERecord(NamedTuple):
     """A single record of an EFE prediction paired with its outcome.
 
@@ -474,6 +482,7 @@ class EFERecord(NamedTuple):
         outcome_valence: Actual outcome quality (positive = good, negative
             = bad). For binary accuracy, use 1.0 (correct) or 0.0 (incorrect).
     """
+
     predicted_efe: float
     confidence: float
     outcome_valence: float
@@ -541,13 +550,9 @@ class EFEMonitor:
             self.decay * self._ema_confidence + alpha * rec.confidence
         )
         accuracy = 1.0 if rec.outcome_valence > 0.0 else 0.0
-        self._ema_accuracy = (
-            self.decay * self._ema_accuracy + alpha * accuracy
-        )
+        self._ema_accuracy = self.decay * self._ema_accuracy + alpha * accuracy
         sq_err = (rec.confidence - accuracy) ** 2
-        self._ema_squared_error = (
-            self.decay * self._ema_squared_error + alpha * sq_err
-        )
+        self._ema_squared_error = self.decay * self._ema_squared_error + alpha * sq_err
 
     def get_calibration(self) -> float:
         """Compute calibration error from recent trials.
@@ -563,13 +568,11 @@ class EFEMonitor:
         if not self.records:
             return 0.0
 
-        window = self.records[-self.window_size:]
+        window = self.records[-self.window_size :]
         eps = 1e-16
 
         confidences = np.array([r.confidence for r in window])
-        accuracies = np.array([
-            1.0 if r.outcome_valence > 0.0 else 0.0 for r in window
-        ])
+        accuracies = np.array([1.0 if r.outcome_valence > 0.0 else 0.0 for r in window])
 
         mse = np.mean((confidences - accuracies) ** 2)
         return float(np.sqrt(mse + eps))
@@ -592,13 +595,11 @@ class EFEMonitor:
         if self._n_records < 2:
             return 1.0
 
-        window = self.records[-self.window_size:]
+        window = self.records[-self.window_size :]
         eps = 1e-16
 
         confidences = np.array([r.confidence for r in window])
-        accuracies = np.array([
-            1.0 if r.outcome_valence > 0.0 else 0.0 for r in window
-        ])
+        accuracies = np.array([1.0 if r.outcome_valence > 0.0 else 0.0 for r in window])
 
         # Variance of confidence
         conf_var = np.var(confidences)
@@ -607,8 +608,7 @@ class EFEMonitor:
 
         # Covariance between confidence and accuracy
         cov = np.mean(
-            (confidences - confidences.mean())
-            * (accuracies - accuracies.mean())
+            (confidences - confidences.mean()) * (accuracies - accuracies.mean())
         )
 
         # m-ratio approximation: how well confidence tracks accuracy
@@ -637,6 +637,7 @@ class EFEMonitor:
 # ---------------------------------------------------------------------------
 # MetacognitiveAgent: wraps AnalyticAgent with self-monitoring
 # ---------------------------------------------------------------------------
+
 
 class MetacognitiveAgent:
     """Active Inference agent with metacognitive self-monitoring.
@@ -821,14 +822,11 @@ class MetacognitiveAgent:
             gamma_history, mean_confidence, mean_accuracy,
             confidence_accuracy_gap, n_trials, monitor_summary.
         """
-        eps = 1e-16
         mean_conf = (
-            float(np.mean(self.confidence_history))
-            if self.confidence_history else 0.5
+            float(np.mean(self.confidence_history)) if self.confidence_history else 0.5
         )
         mean_acc = (
-            float(np.mean(self.accuracy_history))
-            if self.accuracy_history else 0.5
+            float(np.mean(self.accuracy_history)) if self.accuracy_history else 0.5
         )
 
         return {
@@ -854,6 +852,7 @@ class MetacognitiveAgent:
 # PopulationMetacognition: aggregate stats for multi-agent simulations
 # ---------------------------------------------------------------------------
 
+
 class PopulationMetacognition:
     """Aggregate metacognitive statistics across a population of agents.
 
@@ -874,9 +873,7 @@ class PopulationMetacognition:
         Returns:
             Array of m-ratios, shape (n_agents,).
         """
-        return np.array([
-            a.monitor.get_online_m_ratio() for a in self.agents
-        ])
+        return np.array([a.monitor.get_online_m_ratio() for a in self.agents])
 
     def get_heterogeneity_stats(self) -> dict[str, float]:
         """Compute summary statistics of metacognitive heterogeneity.
@@ -888,9 +885,7 @@ class PopulationMetacognition:
         """
         m_ratios = self.get_population_m_ratios()
         gammas = np.array([a.gamma for a in self.agents])
-        calibrations = np.array([
-            a.monitor.get_calibration() for a in self.agents
-        ])
+        calibrations = np.array([a.monitor.get_calibration() for a in self.agents])
 
         return {
             "mean_m_ratio": float(np.mean(m_ratios)),
@@ -911,8 +906,6 @@ class PopulationMetacognition:
             heterogeneity (dict of population-level stats).
         """
         return {
-            "agent_summaries": [
-                a.get_metacognitive_summary() for a in self.agents
-            ],
+            "agent_summaries": [a.get_metacognitive_summary() for a in self.agents],
             "heterogeneity": self.get_heterogeneity_stats(),
         }

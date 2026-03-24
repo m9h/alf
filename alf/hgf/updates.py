@@ -29,6 +29,7 @@ import jax.numpy as jnp
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 class HGFBelief(NamedTuple):
     """Gaussian belief at one HGF level.
 
@@ -36,6 +37,7 @@ class HGFBelief(NamedTuple):
         mu: Posterior mean.
         pi: Posterior precision (inverse variance).
     """
+
     mu: jnp.ndarray
     pi: jnp.ndarray
 
@@ -48,6 +50,7 @@ class BinaryHGFParams(NamedTuple):
         mu_2_0: Initial mean of level 2.
         sigma_2_0: Initial variance of level 2.
     """
+
     omega_2: jnp.ndarray
     mu_2_0: jnp.ndarray
     sigma_2_0: jnp.ndarray
@@ -70,6 +73,7 @@ class ContinuousHGFParams(NamedTuple):
         mu_3_0: Initial mean of level 3.
         sigma_3_0: Initial variance of level 3.
     """
+
     omega_1: jnp.ndarray
     omega_2: jnp.ndarray
     kappa_1: jnp.ndarray
@@ -92,6 +96,7 @@ class HGFResult(NamedTuple):
         pi: Posterior precisions at each level, shape (T, num_levels).
         surprise: Per-trial surprise (negative log-likelihood), shape (T,).
     """
+
     mu: jnp.ndarray
     pi: jnp.ndarray
     surprise: jnp.ndarray
@@ -100,6 +105,7 @@ class HGFResult(NamedTuple):
 # ---------------------------------------------------------------------------
 # 2-level binary HGF
 # ---------------------------------------------------------------------------
+
 
 def binary_hgf_update(
     mu_2: jnp.ndarray,
@@ -169,18 +175,14 @@ def binary_hgf(
 
     def scan_step(carry, u):
         mu_2, pi_2 = carry
-        new_mu_2, new_pi_2, surprise = binary_hgf_update(
-            mu_2, pi_2, u, params.omega_2
-        )
+        new_mu_2, new_pi_2, surprise = binary_hgf_update(mu_2, pi_2, u, params.omega_2)
         # Stack as (1,) arrays for concatenation across levels
         out_mu = jnp.array([new_mu_2])
         out_pi = jnp.array([new_pi_2])
         return (new_mu_2, new_pi_2), (out_mu, out_pi, surprise)
 
     init_carry = (mu_2_0, pi_2_0)
-    _, (mu_traj, pi_traj, surprises) = jax.lax.scan(
-        scan_step, init_carry, observations
-    )
+    _, (mu_traj, pi_traj, surprises) = jax.lax.scan(scan_step, init_carry, observations)
 
     return HGFResult(mu=mu_traj, pi=pi_traj, surprise=surprises)
 
@@ -206,6 +208,7 @@ def binary_hgf_surprise(
 # 3-level continuous HGF
 # ---------------------------------------------------------------------------
 
+
 def continuous_hgf_update(
     mu_1: jnp.ndarray,
     pi_1: jnp.ndarray,
@@ -220,8 +223,15 @@ def continuous_hgf_update(
     kappa_2: jnp.ndarray,
     theta: jnp.ndarray,
     pi_u: jnp.ndarray,
-) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray,
-           jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+) -> tuple[
+    jnp.ndarray,
+    jnp.ndarray,
+    jnp.ndarray,
+    jnp.ndarray,
+    jnp.ndarray,
+    jnp.ndarray,
+    jnp.ndarray,
+]:
     """Single-trial update for 3-level continuous HGF.
 
     Level 1: tracks the value of the input.
@@ -268,13 +278,13 @@ def continuous_hgf_update(
     # --- Level 2 update (volatility of level 1) ---
     # Volatility prediction error from level 1
     delta_mu_1 = new_mu_1 - hat_mu_1
-    vope_1 = hat_pi_1 * (new_sigma_1 + delta_mu_1 ** 2) - 1.0
+    vope_1 = hat_pi_1 * (new_sigma_1 + delta_mu_1**2) - 1.0
 
     # Coupling weight: how much level 2 influences level 1's variance
     w_1 = kappa_1 * v_1 / jnp.clip(hat_sigma_1, eps)
 
     # Update precision and mean
-    new_pi_2 = hat_pi_2 + 0.5 * w_1 ** 2 * (1.0 + vope_1)
+    new_pi_2 = hat_pi_2 + 0.5 * w_1**2 * (1.0 + vope_1)
     new_pi_2 = jnp.clip(new_pi_2, eps)  # Safeguard against negative precision
     new_mu_2 = hat_mu_2 + 0.5 * w_1 * vope_1 / new_pi_2
     new_sigma_2 = 1.0 / new_pi_2
@@ -282,20 +292,20 @@ def continuous_hgf_update(
     # --- Level 3 update (meta-volatility) ---
     # Volatility prediction error from level 2
     delta_mu_2 = new_mu_2 - hat_mu_2
-    vope_2 = hat_pi_2 * (new_sigma_2 + delta_mu_2 ** 2) - 1.0
+    vope_2 = hat_pi_2 * (new_sigma_2 + delta_mu_2**2) - 1.0
 
     # Coupling weight
     w_2 = kappa_2 * v_2 / jnp.clip(hat_sigma_2, eps)
 
     # Update
-    new_pi_3 = hat_pi_3 + 0.5 * w_2 ** 2 * (1.0 + vope_2)
+    new_pi_3 = hat_pi_3 + 0.5 * w_2**2 * (1.0 + vope_2)
     new_pi_3 = jnp.clip(new_pi_3, eps)
     new_mu_3 = hat_mu_3 + 0.5 * w_2 * vope_2 / new_pi_3
 
     # --- Surprise ---
     # -log N(u; hat_mu_1, 1/pi_u + hat_sigma_1)
     total_var = 1.0 / jnp.clip(pi_u, eps) + hat_sigma_1
-    surprise = 0.5 * (jnp.log(2.0 * jnp.pi * total_var) + delta_1 ** 2 / total_var)
+    surprise = 0.5 * (jnp.log(2.0 * jnp.pi * total_var) + delta_1**2 / total_var)
 
     return new_mu_1, new_pi_1, new_mu_2, new_pi_2, new_mu_3, new_pi_3, surprise
 
@@ -322,24 +332,30 @@ def continuous_hgf(
 
     def scan_step(carry, u):
         mu_1, pi_1, mu_2, pi_2, mu_3, pi_3 = carry
-        (new_mu_1, new_pi_1, new_mu_2, new_pi_2,
-         new_mu_3, new_pi_3, surprise) = continuous_hgf_update(
-            mu_1, pi_1, mu_2, pi_2, mu_3, pi_3, u,
-            params.omega_1, params.omega_2,
-            params.kappa_1, params.kappa_2,
-            params.theta, params.pi_u,
+        (new_mu_1, new_pi_1, new_mu_2, new_pi_2, new_mu_3, new_pi_3, surprise) = (
+            continuous_hgf_update(
+                mu_1,
+                pi_1,
+                mu_2,
+                pi_2,
+                mu_3,
+                pi_3,
+                u,
+                params.omega_1,
+                params.omega_2,
+                params.kappa_1,
+                params.kappa_2,
+                params.theta,
+                params.pi_u,
+            )
         )
         out_mu = jnp.array([new_mu_1, new_mu_2, new_mu_3])
         out_pi = jnp.array([new_pi_1, new_pi_2, new_pi_3])
-        new_carry = (new_mu_1, new_pi_1, new_mu_2, new_pi_2,
-                     new_mu_3, new_pi_3)
+        new_carry = (new_mu_1, new_pi_1, new_mu_2, new_pi_2, new_mu_3, new_pi_3)
         return new_carry, (out_mu, out_pi, surprise)
 
-    init_carry = (params.mu_1_0, pi_1_0, params.mu_2_0, pi_2_0,
-                  params.mu_3_0, pi_3_0)
-    _, (mu_traj, pi_traj, surprises) = jax.lax.scan(
-        scan_step, init_carry, observations
-    )
+    init_carry = (params.mu_1_0, pi_1_0, params.mu_2_0, pi_2_0, params.mu_3_0, pi_3_0)
+    _, (mu_traj, pi_traj, surprises) = jax.lax.scan(scan_step, init_carry, observations)
 
     return HGFResult(mu=mu_traj, pi=pi_traj, surprise=surprises)
 

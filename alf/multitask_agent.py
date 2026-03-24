@@ -180,9 +180,7 @@ class MultitaskAgent:
             RuntimeError: If no task has been set.
         """
         if self._current_gm is None or self._current_task is None:
-            raise RuntimeError(
-                "No task set. Call set_task() before stepping."
-            )
+            raise RuntimeError("No task set. Call set_task() before stepping.")
 
         gm = self._current_gm
         eps = 1e-16
@@ -220,8 +218,8 @@ class MultitaskAgent:
                     # Use einsum to contract all factors except f.
                     # E.g. for 3 factors and f=1: "abc,a,c->b"
                     ndim = gm.num_factors
-                    letters = [chr(ord('a') + i) for i in range(ndim)]
-                    a_sub = ''.join(letters)
+                    letters = [chr(ord("a") + i) for i in range(ndim)]
+                    a_sub = "".join(letters)
                     operands = [A_slice]
                     subs = [a_sub]
                     for other_f in range(ndim):
@@ -229,7 +227,7 @@ class MultitaskAgent:
                             subs.append(letters[other_f])
                             operands.append(self.beliefs[other_f])
                     out_sub = letters[f]
-                    einsum_str = ','.join(subs) + '->' + out_sub
+                    einsum_str = ",".join(subs) + "->" + out_sub
                     likelihood_f = np.einsum(einsum_str, *operands)
 
                     if likelihood_f.shape[0] == gm.num_states[f]:
@@ -243,6 +241,7 @@ class MultitaskAgent:
         if gm.num_factors == 1 and gm.num_modalities == 1:
             # Use fast single-factor path
             from alf.sequential_efe import evaluate_all_policies_sequential
+
             G = evaluate_all_policies_sequential(gm, self.beliefs)
         else:
             # Use multi-factor path
@@ -253,7 +252,10 @@ class MultitaskAgent:
         # 3. Action selection
         E = self._get_current_E()
         policy_idx, policy_probs = alf_policy.select_action(
-            G, E, self.gamma, rng=self.rng,
+            G,
+            E,
+            self.gamma,
+            rng=self.rng,
         )
         self.policy_prob_history.append(policy_probs.copy())
 
@@ -295,7 +297,9 @@ class MultitaskAgent:
         if self.policy_prob_history:
             last_policy_idx = self.policy_prob_history[-1].argmax()
             E = alf_policy.update_habits(
-                E, last_policy_idx, outcome_valence,
+                E,
+                last_policy_idx,
+                outcome_valence,
                 learning_rate=self.learning_rate,
             )
             self._task_habits[self._current_task] = E
@@ -303,7 +307,8 @@ class MultitaskAgent:
     def update_precision(self, prediction_error: float) -> None:
         """Adapt policy precision based on prediction error."""
         self.gamma = alf_policy.update_precision(
-            self.gamma, prediction_error,
+            self.gamma,
+            prediction_error,
         )
 
     def reset(self) -> None:
@@ -328,9 +333,7 @@ class MultitaskAgent:
         if not self._observation_buffer:
             return self.multitask_model.task_prior.copy()
 
-        self._task_posterior = self.multitask_model.infer_task(
-            self._observation_buffer
-        )
+        self._task_posterior = self.multitask_model.infer_task(self._observation_buffer)
         return self._task_posterior.copy()
 
     def run_trial(
@@ -439,14 +442,11 @@ class MultitaskAgent:
         """
         if task_order is None:
             task_order = [
-                name for name in self.multitask_model.task_names
-                if name in envs
+                name for name in self.multitask_model.task_names if name in envs
             ]
 
         if not task_order:
-            raise ValueError(
-                "No tasks to run. Ensure envs keys match task names."
-            )
+            raise ValueError("No tasks to run. Ensure envs keys match task names.")
 
         all_results: dict[str, list[dict]] = {name: [] for name in task_order}
 
@@ -456,10 +456,9 @@ class MultitaskAgent:
                 for task_name in task_order:
                     env = envs[task_name]
                     result = self.run_trial(env, task_name)
-                    result["global_trial_idx"] = (
-                        trial_idx * len(task_order)
-                        + task_order.index(task_name)
-                    )
+                    result["global_trial_idx"] = trial_idx * len(
+                        task_order
+                    ) + task_order.index(task_name)
                     all_results[task_name].append(result)
         else:
             # Blocked: all trials for each task sequentially
@@ -480,13 +479,13 @@ class MultitaskAgent:
             task_metrics[task_name] = {
                 "mean_reward": float(np.mean(rewards)) if rewards else 0.0,
                 "reward_rate": (
-                    sum(1 for r in rewards if r > 0) / len(rewards)
-                    if rewards else 0.0
+                    sum(1 for r in rewards if r > 0) / len(rewards) if rewards else 0.0
                 ),
                 "n_trials": len(results),
                 "mean_steps": (
                     float(np.mean([r["num_steps"] for r in results]))
-                    if results else 0.0
+                    if results
+                    else 0.0
                 ),
             }
 
@@ -502,7 +501,8 @@ class MultitaskAgent:
             ),
             "overall_reward_rate": (
                 sum(1 for r in all_rewards if r > 0) / len(all_rewards)
-                if all_rewards else 0.0
+                if all_rewards
+                else 0.0
             ),
             "total_trials": len(all_rewards),
             "n_tasks": len(task_order),
@@ -529,8 +529,6 @@ class MultitaskAgent:
             }
 
         if self._task_habits:
-            summary["tasks_with_learned_habits"] = list(
-                self._task_habits.keys()
-            )
+            summary["tasks_with_learned_habits"] = list(self._task_habits.keys())
 
         return summary

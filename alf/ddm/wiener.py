@@ -32,6 +32,7 @@ import numpy as np
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 class DDMParams(NamedTuple):
     """Parameters for a standard DDM.
 
@@ -41,6 +42,7 @@ class DDMParams(NamedTuple):
         w: Starting point bias as proportion of a (0 < w < 1). w=0.5 is unbiased.
         tau: Non-decision time (encoding + motor, > 0).
     """
+
     v: jnp.ndarray
     a: jnp.ndarray
     w: jnp.ndarray
@@ -54,6 +56,7 @@ class DDMResult(NamedTuple):
         rt: Reaction times, shape (n_trials,).
         choice: Choices (1 = upper boundary, 0 = lower boundary), shape (n_trials,).
     """
+
     rt: np.ndarray
     choice: np.ndarray
 
@@ -61,6 +64,7 @@ class DDMResult(NamedTuple):
 # ---------------------------------------------------------------------------
 # Navarro-Fuss density (core computation)
 # ---------------------------------------------------------------------------
+
 
 def _wiener_small_time(
     t: jnp.ndarray,
@@ -81,7 +85,7 @@ def _wiener_small_time(
         Density value (unnormalized by 1/sqrt(2*pi*t^3)).
     """
     ks = jnp.arange(-n_terms, n_terms + 1)
-    terms = (w + 2.0 * ks) * jnp.exp(-(w + 2.0 * ks) ** 2 / (2.0 * t))
+    terms = (w + 2.0 * ks) * jnp.exp(-((w + 2.0 * ks) ** 2) / (2.0 * t))
     return jnp.sum(terms)
 
 
@@ -104,9 +108,7 @@ def _wiener_large_time(
         Density value (unnormalized by pi).
     """
     ks = jnp.arange(1, n_terms + 1)
-    terms = ks * jnp.sin(ks * jnp.pi * w) * jnp.exp(
-        -ks ** 2 * jnp.pi ** 2 * t / 2.0
-    )
+    terms = ks * jnp.sin(ks * jnp.pi * w) * jnp.exp(-(ks**2) * jnp.pi**2 * t / 2.0)
     return jnp.sum(terms)
 
 
@@ -151,20 +153,22 @@ def wiener_log_density(
     dt = jnp.clip(dt, eps)
 
     # Normalize time by boundary separation squared
-    t_norm = dt / (a ** 2)
+    t_norm = dt / (a**2)
     t_norm = jnp.clip(t_norm, eps)
 
     # Choose series based on which converges faster
     # Navarro & Fuss heuristic: use small-time if t_norm < threshold
-    use_small = t_norm < 2.5 / (jnp.pi ** 2)
+    use_small = t_norm < 2.5 / (jnp.pi**2)
 
     # Compute both series
     fs = _wiener_small_time(t_norm, w_eff, n_terms)
     fl = _wiener_large_time(t_norm, w_eff, n_terms)
 
     # Small-time density: (1/sqrt(2*pi*t^3)) * fs
-    log_small = -0.5 * jnp.log(2.0 * jnp.pi) - 1.5 * jnp.log(t_norm) + jnp.log(
-        jnp.clip(fs, eps)
+    log_small = (
+        -0.5 * jnp.log(2.0 * jnp.pi)
+        - 1.5 * jnp.log(t_norm)
+        + jnp.log(jnp.clip(fs, eps))
     )
 
     # Large-time density: pi * fl
@@ -181,7 +185,7 @@ def wiener_log_density(
         log_density_unnorm
         - 2.0 * jnp.log(a)
         + v_eff * a * w_eff
-        - (v_eff ** 2) * dt / 2.0
+        - (v_eff**2) * dt / 2.0
     )
 
     # Mask invalid trials (rt <= tau)
@@ -214,14 +218,15 @@ def wiener_log_density_batch(
     Returns:
         Log-densities, shape (N,).
     """
-    return jax.vmap(
-        lambda r, c: wiener_log_density(r, c, v, a, w, tau, n_terms)
-    )(rt, choice)
+    return jax.vmap(lambda r, c: wiener_log_density(r, c, v, a, w, tau, n_terms))(
+        rt, choice
+    )
 
 
 # ---------------------------------------------------------------------------
 # Log-likelihood and NLL
 # ---------------------------------------------------------------------------
+
 
 def ddm_log_likelihood(
     params: DDMParams,
@@ -273,6 +278,7 @@ def ddm_nll(
 # ---------------------------------------------------------------------------
 # DDM simulation
 # ---------------------------------------------------------------------------
+
 
 def simulate_ddm(
     v: float,

@@ -12,7 +12,6 @@ Hand-computed SDT references:
         c  = -0.5 * (z(0.797) + z(0.302)) ≈ -0.5 * (0.833 + (-0.518)) ≈ -0.158
 """
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -23,7 +22,6 @@ from alf.metacognition import (
     compute_type1_from_counts,
     fit_meta_d_mle,
     m_ratio_to_gamma,
-    update_gamma_from_confidence,
 )
 
 DATA_DIR = Path(__file__).parent / "data" / "metacognition"
@@ -31,7 +29,22 @@ RM_FILE = DATA_DIR / "rm.txt"
 DATA_AVAILABLE = RM_FILE.exists()
 
 try:
-    import metadpy
+    import importlib.util
+
+    pd = importlib.util.find_spec("pandas")
+    if pd is None:
+        raise ImportError
+
+    HAS_PANDAS = True
+except ImportError:
+    HAS_PANDAS = False
+
+try:
+    import importlib.util
+
+    metadpy = importlib.util.find_spec("metadpy")
+    if metadpy is None:
+        raise ImportError
     HAS_METADPY = True
 except ImportError:
     HAS_METADPY = False
@@ -41,9 +54,15 @@ except ImportError:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def load_rm_dataset():
     """Load the metadPy rm.txt dataset."""
-    import pandas as pd
+    import importlib.util
+
+    pd = importlib.util.find_spec("pandas")
+    if pd is None:
+        raise ImportError
+
     return pd.read_csv(RM_FILE)
 
 
@@ -91,6 +110,7 @@ def trial_data_to_counts(stimuli, responses, confidence, n_ratings=4):
 # Hand-computed reference tests (no external data needed)
 # ---------------------------------------------------------------------------
 
+
 def test_known_dprime_computation():
     """Test d' against hand-computed value.
 
@@ -110,11 +130,11 @@ def test_known_dprime_computation():
     expected_d = norm.ppf(hr) - norm.ppf(far)
     expected_c = -0.5 * (norm.ppf(hr) + norm.ppf(far))
 
-    np.testing.assert_allclose(d, expected_d, atol=0.01,
-        err_msg=f"d'={d:.4f}, expected={expected_d:.4f}"
+    np.testing.assert_allclose(
+        d, expected_d, atol=0.01, err_msg=f"d'={d:.4f}, expected={expected_d:.4f}"
     )
-    np.testing.assert_allclose(c, expected_c, atol=0.01,
-        err_msg=f"c={c:.4f}, expected={expected_c:.4f}"
+    np.testing.assert_allclose(
+        c, expected_c, atol=0.01, err_msg=f"c={c:.4f}, expected={expected_c:.4f}"
     )
 
     # Sanity: d' should be around 1.35
@@ -131,9 +151,13 @@ def test_dprime_zero_for_chance():
 def test_criterion_sign_convention():
     """Test criterion sign: liberal (low threshold) -> negative c."""
     # Liberal: high hit rate AND high FA rate
-    d_lib, c_lib = compute_sdt_type1(hits=95, misses=5, false_alarms=70, correct_rejections=30)
+    d_lib, c_lib = compute_sdt_type1(
+        hits=95, misses=5, false_alarms=70, correct_rejections=30
+    )
     # Conservative: low hit rate AND low FA rate
-    d_con, c_con = compute_sdt_type1(hits=40, misses=60, false_alarms=5, correct_rejections=95)
+    d_con, c_con = compute_sdt_type1(
+        hits=40, misses=60, false_alarms=5, correct_rejections=95
+    )
 
     assert c_lib < 0, f"Liberal criterion should be negative: {c_lib:.3f}"
     assert c_con > 0, f"Conservative criterion should be positive: {c_con:.3f}"
@@ -159,7 +183,6 @@ def test_meta_d_mle_on_synthetic():
     """Test meta-d' MLE on synthetic data with known properties."""
     # Generate data where metacognition is good (meta-d' ~ d')
     np.random.seed(42)
-    n_ratings = 4
 
     # Create clean SDT data
     nR_S1 = np.array([40.0, 20.0, 10.0, 5.0, 3.0, 7.0, 15.0, 50.0])
@@ -189,7 +212,8 @@ def test_m_ratio_to_gamma_pipeline():
 # Real dataset tests (metadPy rm.txt)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(not DATA_AVAILABLE, reason="rm.txt not downloaded")
+
+@pytest.mark.skipif(not (DATA_AVAILABLE and HAS_PANDAS), reason="rm.txt not downloaded")
 def test_rm_data_loads():
     """Test that metadPy rm.txt dataset loads correctly."""
     df = load_rm_dataset()
@@ -199,10 +223,10 @@ def test_rm_data_loads():
     assert "Confidence" in df.columns, "Missing Confidence column"
     assert "Subject" in df.columns, "Missing Subject column"
     assert len(df) == 4000, f"Expected 4000 rows, got {len(df)}"
-    assert df["Subject"].nunique() == 20, f"Expected 20 subjects"
+    assert df["Subject"].nunique() == 20, "Expected 20 subjects"
 
 
-@pytest.mark.skipif(not DATA_AVAILABLE, reason="rm.txt not downloaded")
+@pytest.mark.skipif(not (DATA_AVAILABLE and HAS_PANDAS), reason="rm.txt not downloaded")
 def test_rm_single_subject_dprime():
     """Test d' computation on first subject of rm dataset."""
     df = load_rm_dataset()
@@ -223,7 +247,7 @@ def test_rm_single_subject_dprime():
     assert -2.0 < c < 2.0, f"c={c:.3f} out of expected range"
 
 
-@pytest.mark.skipif(not DATA_AVAILABLE, reason="rm.txt not downloaded")
+@pytest.mark.skipif(not (DATA_AVAILABLE and HAS_PANDAS), reason="rm.txt not downloaded")
 def test_rm_meta_d_mle():
     """Test meta-d' MLE on first subject of rm dataset."""
     df = load_rm_dataset()
@@ -239,9 +263,9 @@ def test_rm_meta_d_mle():
 
     result = fit_meta_d_mle(nR_S1, nR_S2)
 
-    assert np.isfinite(result.d_prime), f"d' not finite"
-    assert np.isfinite(result.meta_d), f"meta-d' not finite"
-    assert np.isfinite(result.m_ratio), f"m-ratio not finite"
+    assert np.isfinite(result.d_prime), "d' not finite"
+    assert np.isfinite(result.meta_d), "meta-d' not finite"
+    assert np.isfinite(result.m_ratio), "m-ratio not finite"
 
     # m-ratio should be in reasonable range
     assert 0.01 < abs(result.m_ratio) < 5.0, (
@@ -249,7 +273,7 @@ def test_rm_meta_d_mle():
     )
 
 
-@pytest.mark.skipif(not DATA_AVAILABLE, reason="rm.txt not downloaded")
+@pytest.mark.skipif(not (DATA_AVAILABLE and HAS_PANDAS), reason="rm.txt not downloaded")
 def test_rm_all_subjects_finite():
     """Test that d' and meta-d' are finite for all 20 subjects."""
     df = load_rm_dataset()
@@ -272,12 +296,10 @@ def test_rm_all_subjects_finite():
         except Exception:
             pass
 
-    assert n_ok >= 15, (
-        f"At least 15/20 subjects should have finite results, got {n_ok}"
-    )
+    assert n_ok >= 15, f"At least 15/20 subjects should have finite results, got {n_ok}"
 
 
-@pytest.mark.skipif(not DATA_AVAILABLE, reason="rm.txt not downloaded")
+@pytest.mark.skipif(not (DATA_AVAILABLE and HAS_PANDAS), reason="rm.txt not downloaded")
 def test_rm_full_pipeline():
     """Test complete pipeline: rm data -> d' -> meta-d' -> gamma."""
     df = load_rm_dataset()
@@ -307,6 +329,7 @@ def test_rm_full_pipeline():
 # ---------------------------------------------------------------------------
 # metadPy cross-validation (skip if not installed)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.skipif(not HAS_METADPY, reason="metadPy not installed")
 def test_dprime_matches_metadpy():

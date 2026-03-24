@@ -27,7 +27,7 @@ References:
         Inference. Journal of Mathematical Psychology.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -108,7 +108,10 @@ class AnalyticAgent:
 
         # 3. Action selection
         policy_idx, policy_probs = alf_policy.select_action(
-            G, self.E, self.gamma, rng=self.rng,
+            G,
+            self.E,
+            self.gamma,
+            rng=self.rng,
         )
         self.policy_prob_history.append(policy_probs.copy())
 
@@ -133,19 +136,20 @@ class AnalyticAgent:
         """
         if self.action_history:
             last_policy_idx = (
-                self.policy_prob_history[-1].argmax()
-                if self.policy_prob_history
-                else 0
+                self.policy_prob_history[-1].argmax() if self.policy_prob_history else 0
             )
             self.E = alf_policy.update_habits(
-                self.E, last_policy_idx, outcome_valence,
+                self.E,
+                last_policy_idx,
+                outcome_valence,
                 learning_rate=self.learning_rate,
             )
 
     def update_precision(self, prediction_error: float) -> None:
         """Adapt policy precision based on prediction error."""
         self.gamma = alf_policy.update_precision(
-            self.gamma, prediction_error,
+            self.gamma,
+            prediction_error,
         )
 
     def reset(self) -> None:

@@ -22,21 +22,18 @@ from alf.hgf.updates import (
     ContinuousHGFParams,
     binary_hgf,
     continuous_hgf,
-    binary_hgf_surprise,
 )
-from alf.hgf.bridge import HGFPerceptualAgent, hgf_to_categorical
-from alf.hgf.learning import learn_binary_hgf, binary_hgf_nll
+from alf.hgf.bridge import HGFPerceptualAgent
+from alf.hgf.learning import learn_binary_hgf
 
 from alf.ddm.wiener import (
     DDMParams,
     simulate_ddm,
     ddm_nll,
-    ddm_log_likelihood,
 )
 from alf.ddm.bridge import efe_to_ddm, ddm_to_policy_probs
 
 from alf.metacognition import (
-    compute_sdt_type1,
     compute_type1_from_counts,
     fit_meta_d_mle,
     m_ratio_to_gamma,
@@ -54,18 +51,25 @@ from alf.normative.blr import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def build_simple_2state_model():
     """Build a minimal 2-state, 2-obs, 2-action model for HGF integration."""
-    A = [np.array([
-        [0.9, 0.1],
-        [0.1, 0.9],
-    ])]
-    B = [np.array([
-        [[0.8, 0.2],
-         [0.2, 0.8]],
-        [[0.2, 0.8],
-         [0.8, 0.2]],
-    ]).transpose(1, 2, 0)]
+    A = [
+        np.array(
+            [
+                [0.9, 0.1],
+                [0.1, 0.9],
+            ]
+        )
+    ]
+    B = [
+        np.array(
+            [
+                [[0.8, 0.2], [0.2, 0.8]],
+                [[0.2, 0.8], [0.8, 0.2]],
+            ]
+        ).transpose(1, 2, 0)
+    ]
     C = [np.array([1.0, -1.0])]
     D = [np.array([0.5, 0.5])]
     return GenerativeModel(A=A, B=B, C=C, D=D, T=1)
@@ -127,7 +131,6 @@ def generate_sdt_data(d_prime=1.5, n_trials=500, n_ratings=4, seed=42):
     Returns nR_S1 and nR_S2 arrays.
     """
     rng = np.random.RandomState(seed)
-    half = n_ratings
 
     # Internal evidence values: S1 ~ N(-d'/2, 1), S2 ~ N(d'/2, 1)
     evidence_s1 = rng.normal(-d_prime / 2.0, 1.0, n_trials)
@@ -169,6 +172,7 @@ def generate_normative_data(n_train=200, n_test=50, seed=42):
 # HGF Integration Tests
 # ===========================================================================
 
+
 def test_hgf_perceptual_agent_binary():
     """HGFPerceptualAgent with binary HGF produces valid actions and beliefs."""
     gm = build_simple_2state_model()
@@ -176,8 +180,7 @@ def test_hgf_perceptual_agent_binary():
     agent = HGFPerceptualAgent(gm, hgf_params, gamma=4.0, seed=123)
 
     num_steps = 20
-    observations = [1, 0, 1, 1, 0, 1, 1, 1, 0, 0,
-                    1, 1, 0, 1, 0, 0, 1, 1, 1, 0]
+    observations = [1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0]
 
     for t in range(num_steps):
         action, info = agent.step(float(observations[t]))
@@ -189,15 +192,14 @@ def test_hgf_perceptual_agent_binary():
         # Beliefs must be a valid probability distribution
         beliefs = info["beliefs"]
         np.testing.assert_allclose(
-            beliefs.sum(), 1.0, atol=1e-6,
-            err_msg=f"Step {t}: beliefs don't sum to 1"
+            beliefs.sum(), 1.0, atol=1e-6, err_msg=f"Step {t}: beliefs don't sum to 1"
         )
         assert np.all(beliefs >= 0), f"Step {t}: negative belief"
 
     # Surprise should generally decrease as the agent learns the pattern
     surprises = agent.surprise_history
-    first_half = np.mean(surprises[:num_steps // 2])
-    second_half = np.mean(surprises[num_steps // 2:])
+    np.mean(surprises[: num_steps // 2])
+    np.mean(surprises[num_steps // 2 :])
     # This is a soft check; the agent should at least not diverge
     assert np.all(np.isfinite(surprises)), "Surprise contains non-finite values"
 
@@ -215,19 +217,15 @@ def test_hgf_perceptual_agent_continuous():
 
     for t in range(len(obs)):
         action, info = agent.step(obs[t])
-        assert 0 <= action < gm.num_actions[0], (
-            f"Step {t}: invalid action {action}"
-        )
+        assert 0 <= action < gm.num_actions[0], f"Step {t}: invalid action {action}"
 
     # The HGF level-1 mean should track the drifting signal
     hgf_mus = [m[0] for m in agent.hgf_mu_history]
     final_mu = hgf_mus[-1]
-    final_signal = obs[-1]
+    obs[-1]
 
     # The mean should be in the same direction as the signal
-    assert final_mu > 0.0, (
-        f"HGF mu_1 should track upward drift, got {final_mu:.3f}"
-    )
+    assert final_mu > 0.0, f"HGF mu_1 should track upward drift, got {final_mu:.3f}"
     assert np.all(np.isfinite(agent.surprise_history)), (
         "Surprise contains non-finite values"
     )
@@ -272,31 +270,46 @@ def test_hgf_learns_then_predicts():
 # DDM Integration Tests
 # ===========================================================================
 
+
 def test_ddm_simulate_then_fit():
     """Simulating DDM data and computing NLL at true vs random params."""
     true_v, true_a, true_w, true_tau = 1.0, 1.5, 0.5, 0.3
 
     data = simulate_ddm(
-        v=true_v, a=true_a, w=true_w, tau=true_tau,
-        n_trials=200, seed=42,
+        v=true_v,
+        a=true_a,
+        w=true_w,
+        tau=true_tau,
+        n_trials=200,
+        seed=42,
     )
 
     rt = jnp.array(data.rt)
     choice = jnp.array(data.choice, dtype=jnp.float32)
 
     # NLL at true params
-    nll_true = float(ddm_nll(
-        jnp.array(true_v), jnp.array(true_a),
-        jnp.array(true_w), jnp.array(true_tau),
-        rt, choice,
-    ))
+    nll_true = float(
+        ddm_nll(
+            jnp.array(true_v),
+            jnp.array(true_a),
+            jnp.array(true_w),
+            jnp.array(true_tau),
+            rt,
+            choice,
+        )
+    )
 
     # NLL at random (wrong) params
-    nll_random = float(ddm_nll(
-        jnp.array(0.0), jnp.array(2.5),
-        jnp.array(0.5), jnp.array(0.1),
-        rt, choice,
-    ))
+    nll_random = float(
+        ddm_nll(
+            jnp.array(0.0),
+            jnp.array(2.5),
+            jnp.array(0.5),
+            jnp.array(0.1),
+            rt,
+            choice,
+        )
+    )
 
     assert np.isfinite(nll_true), f"NLL at true params is not finite: {nll_true}"
     assert nll_true < nll_random, (
@@ -317,7 +330,7 @@ def test_ddm_efe_bridge_roundtrip():
     assert 0.0 < float(ddm_params.w) < 1.0, (
         f"Starting point bias should be in (0,1): {ddm_params.w}"
     )
-    assert float(ddm_params.tau) > 0, f"Non-decision time should be positive"
+    assert float(ddm_params.tau) > 0, "Non-decision time should be positive"
 
     # Convert to policy probs
     probs = ddm_to_policy_probs(ddm_params)
@@ -342,8 +355,12 @@ def test_ddm_gradient_descent_recovers_drift():
     """Gradient descent through ddm_nll recovers the true drift rate."""
     true_v = 1.5
     data = simulate_ddm(
-        v=true_v, a=1.5, w=0.5, tau=0.3,
-        n_trials=300, seed=88,
+        v=true_v,
+        a=1.5,
+        w=0.5,
+        tau=0.3,
+        n_trials=300,
+        seed=88,
     )
 
     rt = jnp.array(data.rt)
@@ -376,6 +393,7 @@ def test_ddm_gradient_descent_recovers_drift():
 # Metacognition Integration Tests
 # ===========================================================================
 
+
 def test_metacognition_sdt_pipeline():
     """Full SDT pipeline: generate data -> d' -> meta-d' -> gamma."""
     nR_S1, nR_S2 = generate_sdt_data(d_prime=1.5, n_trials=500, seed=42)
@@ -392,15 +410,12 @@ def test_metacognition_sdt_pipeline():
 
     # Convert m-ratio to gamma
     gamma = m_ratio_to_gamma(result.m_ratio, base_gamma=4.0)
-    assert 0.1 <= gamma <= 16.0, (
-        f"Gamma should be in [0.1, 16.0], got {gamma:.3f}"
-    )
+    assert 0.1 <= gamma <= 16.0, f"Gamma should be in [0.1, 16.0], got {gamma:.3f}"
 
     # For data generated from an optimal observer, m-ratio should be
     # roughly around 1 (some deviation expected due to estimation noise)
     assert 0.1 < result.m_ratio < 5.0, (
-        f"m-ratio for well-calibrated data should be reasonable: "
-        f"{result.m_ratio:.3f}"
+        f"m-ratio for well-calibrated data should be reasonable: {result.m_ratio:.3f}"
     )
 
 
@@ -417,7 +432,9 @@ def test_precision_update_stabilizes():
         confidence = np.clip(confidence, 0.5, 1.0)
 
         gamma = update_gamma_from_confidence(
-            gamma, confidence, accuracy,
+            gamma,
+            confidence,
+            accuracy,
             learning_rate=0.05,
         )
         gammas.append(gamma)
@@ -430,14 +447,13 @@ def test_precision_update_stabilizes():
 
     # Standard deviation of gamma trajectory should be relatively small
     gamma_std = np.std(gammas[10:])  # ignore initial transient
-    assert gamma_std < 3.0, (
-        f"Gamma should be relatively stable: std={gamma_std:.3f}"
-    )
+    assert gamma_std < 3.0, f"Gamma should be relatively stable: std={gamma_std:.3f}"
 
 
 # ===========================================================================
 # Normative Integration Tests
 # ===========================================================================
+
 
 def test_normative_pipeline_end_to_end():
     """Full normative pipeline: fit model, add outliers, detect them."""
@@ -508,6 +524,7 @@ def test_normative_vmap_consistency():
     # Run loop version (using normative_model with optimize_hyperparams=False
     # for consistency, since vmap uses optimize_hyperparams=False internally)
     from alf.normative.blr import bspline_basis, fit_blr, predict_blr
+
     x_min = float(min(np.min(x_train), np.min(x_test)))
     x_max = float(max(np.max(x_train), np.max(x_test)))
     Phi_train = jnp.array(bspline_basis(x_train, 6, 3, x_min, x_max))
@@ -518,8 +535,9 @@ def test_normative_vmap_consistency():
     y_std_loop = np.zeros((n_test, n_regions))
 
     for r in range(n_regions):
-        params = fit_blr(Phi_train, jnp.array(Y_train[:, r]),
-                         optimize_hyperparams=False)
+        params = fit_blr(
+            Phi_train, jnp.array(Y_train[:, r]), optimize_hyperparams=False
+        )
         pred = predict_blr(Phi_test, params)
         z_loop[:, r] = np.array(
             compute_zscore(jnp.array(Y_test[:, r]), pred.y_pred, pred.y_std)
@@ -528,22 +546,29 @@ def test_normative_vmap_consistency():
         y_std_loop[:, r] = np.array(pred.y_std)
 
     np.testing.assert_allclose(
-        np.array(z_vmap), z_loop, atol=1e-4,
-        err_msg="vmap Z-scores don't match loop Z-scores"
+        np.array(z_vmap),
+        z_loop,
+        atol=1e-4,
+        err_msg="vmap Z-scores don't match loop Z-scores",
     )
     np.testing.assert_allclose(
-        np.array(y_pred_vmap), y_pred_loop, atol=1e-4,
-        err_msg="vmap predictions don't match loop predictions"
+        np.array(y_pred_vmap),
+        y_pred_loop,
+        atol=1e-4,
+        err_msg="vmap predictions don't match loop predictions",
     )
     np.testing.assert_allclose(
-        np.array(y_std_vmap), y_std_loop, atol=1e-4,
-        err_msg="vmap stds don't match loop stds"
+        np.array(y_std_vmap),
+        y_std_loop,
+        atol=1e-4,
+        err_msg="vmap stds don't match loop stds",
     )
 
 
 # ===========================================================================
 # Cross-Module Integration Tests
 # ===========================================================================
+
 
 def test_hgf_to_metacognition():
     """HGF surprise drives metacognitive precision updates."""
@@ -621,8 +646,10 @@ def test_ddm_with_hgf_beliefs():
         # Policy probs should be valid
         probs = ddm_to_policy_probs(ddm_params)
         np.testing.assert_allclose(
-            float(probs.sum()), 1.0, atol=1e-6,
-            err_msg=f"Step {t}: policy probs don't sum to 1"
+            float(probs.sum()),
+            1.0,
+            atol=1e-6,
+            err_msg=f"Step {t}: policy probs don't sum to 1",
         )
 
 
@@ -636,13 +663,11 @@ def test_normative_zscore_as_free_energy():
     y_test_with_outliers = y_test.copy()
     y_test_with_outliers[:10] += 15.0
 
-    result = normative_model(
-        x_train, y_train, x_test, y_test_with_outliers, n_basis=8
-    )
+    result = normative_model(x_train, y_train, x_test, y_test_with_outliers, n_basis=8)
     z = np.array(result.z_score)
 
     # VFE approximation under Gaussian generative model: F = 0.5 * z^2
-    vfe_approx = 0.5 * z ** 2
+    vfe_approx = 0.5 * z**2
 
     # VFE should always be non-negative
     assert np.all(vfe_approx >= 0), "VFE approximation should be non-negative"
@@ -706,4 +731,5 @@ def test_full_aif_loop_with_hgf():
 
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__, "-v", "--tb=short"])
