@@ -31,12 +31,12 @@ Example:
     >>> agent = alf.AnalyticAgent(gm)
     >>> action, info = agent.step(observation)
 
-Positioning:
+Positioning (as of pymdp v1.0.0, March 2026):
     | Library | Backend | Strength | Best for |
     |---------|---------|----------|----------|
-    | pymdp   | NumPy   | Reference impl    | Standard AIF experiments |
-    | ALF     | JAX     | Differentiable, GPU | Learning, scaling, deep AIF |
-    | pgmax/aif | PGMax BP | Message passing | Large state spaces |
+    | pymdp   | JAX     | Reference impl, community, Equinox | Standard AIF, MCTS, rollout(), model fitting |
+    | ALF     | JAX     | Cognitive extensions on top of pymdp | HGF, DDM, metacognition, hierarchical, deep AIF |
+    | RxInfer | Julia    | Reactive message passing | Factor-graph-native AIF |
 """
 
 from alf.generative_model import GenerativeModel
