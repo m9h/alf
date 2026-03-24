@@ -31,6 +31,17 @@ DATA_AVAILABLE = RM_FILE.exists()
 try:
     import importlib.util
 
+    pd = importlib.util.find_spec("pandas")
+    if pd is None:
+        raise ImportError
+
+    HAS_PANDAS = True
+except ImportError:
+    HAS_PANDAS = False
+
+try:
+    import importlib.util
+
     metadpy = importlib.util.find_spec("metadpy")
     if metadpy is None:
         raise ImportError
@@ -46,7 +57,11 @@ except ImportError:
 
 def load_rm_dataset():
     """Load the metadPy rm.txt dataset."""
-    import pandas as pd
+    import importlib.util
+
+    pd = importlib.util.find_spec("pandas")
+    if pd is None:
+        raise ImportError
 
     return pd.read_csv(RM_FILE)
 
@@ -198,7 +213,7 @@ def test_m_ratio_to_gamma_pipeline():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skipif(not DATA_AVAILABLE, reason="rm.txt not downloaded")
+@pytest.mark.skipif(not (DATA_AVAILABLE and HAS_PANDAS), reason="rm.txt not downloaded")
 def test_rm_data_loads():
     """Test that metadPy rm.txt dataset loads correctly."""
     df = load_rm_dataset()
@@ -211,7 +226,7 @@ def test_rm_data_loads():
     assert df["Subject"].nunique() == 20, "Expected 20 subjects"
 
 
-@pytest.mark.skipif(not DATA_AVAILABLE, reason="rm.txt not downloaded")
+@pytest.mark.skipif(not (DATA_AVAILABLE and HAS_PANDAS), reason="rm.txt not downloaded")
 def test_rm_single_subject_dprime():
     """Test d' computation on first subject of rm dataset."""
     df = load_rm_dataset()
@@ -232,7 +247,7 @@ def test_rm_single_subject_dprime():
     assert -2.0 < c < 2.0, f"c={c:.3f} out of expected range"
 
 
-@pytest.mark.skipif(not DATA_AVAILABLE, reason="rm.txt not downloaded")
+@pytest.mark.skipif(not (DATA_AVAILABLE and HAS_PANDAS), reason="rm.txt not downloaded")
 def test_rm_meta_d_mle():
     """Test meta-d' MLE on first subject of rm dataset."""
     df = load_rm_dataset()
@@ -258,7 +273,7 @@ def test_rm_meta_d_mle():
     )
 
 
-@pytest.mark.skipif(not DATA_AVAILABLE, reason="rm.txt not downloaded")
+@pytest.mark.skipif(not (DATA_AVAILABLE and HAS_PANDAS), reason="rm.txt not downloaded")
 def test_rm_all_subjects_finite():
     """Test that d' and meta-d' are finite for all 20 subjects."""
     df = load_rm_dataset()
@@ -284,7 +299,7 @@ def test_rm_all_subjects_finite():
     assert n_ok >= 15, f"At least 15/20 subjects should have finite results, got {n_ok}"
 
 
-@pytest.mark.skipif(not DATA_AVAILABLE, reason="rm.txt not downloaded")
+@pytest.mark.skipif(not (DATA_AVAILABLE and HAS_PANDAS), reason="rm.txt not downloaded")
 def test_rm_full_pipeline():
     """Test complete pipeline: rm data -> d' -> meta-d' -> gamma."""
     df = load_rm_dataset()
