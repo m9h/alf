@@ -1,8 +1,16 @@
 # ALF — Active inference/Learning Framework
 
-A standalone, JAX-native library for Active Inference on discrete POMDPs. Fully differentiable via `jax.grad`, vectorizable via `jax.vmap`, and GPU-acceleratable via `jax.jit`.
+[![CI](https://github.com/m9h/alf/actions/workflows/ci.yml/badge.svg)](https://github.com/m9h/alf/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![JAX](https://img.shields.io/badge/JAX-%E2%89%A5%200.4.20-9cf.svg)](https://github.com/google/jax)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
+[![Tests: 439](https://img.shields.io/badge/tests-439-brightgreen.svg)](alf/tests/)
 
-ALF implements the complete Active Inference loop — perception, planning, action, and learning — without external inference backends. Where classical AIF frameworks use conjugate updates or message passing, ALF uses a differentiable forward algorithm so that `jax.grad` flows through the entire inference-to-learning pipeline.
+A standalone, JAX-native library for **Active Inference** on discrete POMDPs. Fully differentiable via `jax.grad`, vectorizable via `jax.vmap`, and GPU-acceleratable via `jax.jit`.
+
+> **The key idea:** ALF parameterizes generative model matrices in unconstrained log-space, maps them through softmax, and computes the negative log-likelihood via `jax.lax.scan`-based forward filtering. The entire pipeline — from raw parameters to observation likelihood — is a single differentiable computation graph. This is something no other active inference framework provides.
+
+---
 
 ## Why ALF?
 
@@ -12,7 +20,18 @@ ALF implements the complete Active Inference loop — perception, planning, acti
 | **ALF** | **JAX** | **`jax.grad` through forward algorithm** | **Learning, scaling, deep AIF, computational psychiatry** |
 | [PGMax/aif](https://github.com/vicariousinc/PGMax) | PGMax BP | Message passing | Large state spaces |
 
-The key distinction: ALF parameterizes A and B matrices in unconstrained log-space, maps them through softmax, and computes the negative log-likelihood via `jax.lax.scan`-based forward filtering. This makes the entire pipeline — from raw parameters to observation likelihood — a single differentiable computation graph.
+<details>
+<summary><b>What makes ALF different?</b></summary>
+
+- **End-to-end differentiability** — `jax.grad` flows through the entire inference-to-learning pipeline, enabling gradient-based learning of A/B matrices
+- **Batch scaling** — `jax.vmap` runs 1,000+ parallel agents with sub-linear GPU scaling
+- **Minimal dependencies** — core needs only JAX + NumPy; no Flax, Haiku, or Equinox
+- **Computational psychiatry toolkit** — HGF, DDM, metacognition, and normative modeling all in one JAX-native framework
+- **Pure functional design** — all core functions are pure, so `jax.jit` works seamlessly
+
+</details>
+
+---
 
 ## Quick start
 
@@ -26,8 +45,8 @@ import alf
 import numpy as np
 
 # Define a POMDP generative model
-A = [np.eye(3)]                        # 3 observations, 3 states (identity likelihood)
-B = [np.stack([                        # 3 states, 2 actions
+A = [np.eye(3)]                        # likelihood: P(o|s)
+B = [np.stack([                        # transitions: P(s'|s,a)
     np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]]),  # action 0: rotate
     np.eye(3),                                       # action 1: stay
 ], axis=-1)]
@@ -36,58 +55,71 @@ D = [np.array([1/3, 1/3, 1/3])]       # uniform prior
 
 gm = alf.GenerativeModel(A=A, B=B, C=C, D=D)
 
-# Single agent
+# Single agent (NumPy — for clarity and debugging)
 agent = alf.AnalyticAgent(gm, gamma=4.0)
-action, info = agent.step([0])         # observe state 0, select action
+action, info = agent.step([0])
 
-# Batch of 1000 parallel agents (JAX vmap)
+# Batch of 1000 parallel agents (JAX vmap — for scaling)
 batch = alf.BatchAgent(gm, batch_size=1000)
 obs = np.zeros((1000,), dtype=int)
 actions, info = batch.step_analytic(obs)
 ```
 
+---
+
 ## Architecture
 
 ```
 alf/
-├── generative_model.py   # GenerativeModel dataclass (A, B, C, D, E matrices)
-├── agent.py              # AnalyticAgent — single-agent AIF loop (NumPy)
-├── jax_native.py         # BatchAgent — vmap-parallel agents (JAX)
-├── jax_core.py           # Shared primitives: softmax, safe_log, entropy, etc.
-├── free_energy.py        # Variational and expected free energy
-├── sequential_efe.py     # Multi-step EFE via jax.lax.scan forward rollout
-├── policy.py             # Action selection, habit learning, precision dynamics
-├── learning.py           # Differentiable HMM learning (jax.grad through NLL)
-├── deep_aif.py           # Neural encoder/decoder generative models
-├── hierarchical.py       # Multi-level temporal abstraction, context-dependent A
-├── multitask.py          # Compositional models for cognitive task batteries
-├── multitask_agent.py    # MultitaskAgent with efficient task switching
-├── metacognition.py      # Meta-d', m-ratio, precision calibration
-├── hgf/                  # Hierarchical Gaussian Filter (continuous perception)
-│   ├── updates.py        #   Binary and continuous HGF update equations
-│   ├── graph.py          #   Generalized n-level HGF with arbitrary topology
-│   ├── bridge.py         #   HGF → discrete action selection bridge
-│   └── learning.py       #   Differentiable HGF parameter learning
-├── ddm/                  # Drift-Diffusion Models
-│   ├── wiener.py         #   Navarro-Fuss first-passage time density (pure JAX)
-│   ├── bridge.py         #   EFE ↔ DDM parameter mapping
-│   └── fitting.py        #   MLE, Bayesian, and hierarchical Bayesian fitting
-├── normative/            # Normative modeling for individual differences
-│   ├── blr.py            #   Bayesian Linear Regression with B-splines
-│   ├── warping.py        #   SHASH likelihood for non-Gaussian data
-│   ├── combat.py         #   ComBat multi-site harmonization
-│   └── bridge.py         #   Z-score → VFE bridge
-├── envs/                 # Environment interfaces
-│   ├── cognitive_tasks.py#   20 Yang et al. (2019) cognitive tasks
-│   └── neurogym_bridge.py#   NeuroGym adapter
-└── benchmarks/           # Benchmark tasks
-    ├── t_maze.py         #   T-maze (8 states, 5 obs, 4 actions)
-    ├── neuronav_wrappers.py  # neuronav GridEnv → GenerativeModel
-    ├── cognitive_battery.py  # Full Yang et al. battery
-    ├── context_dm.py     #   Context-dependent delayed matching
-    ├── delayed_match.py  #   Delayed match-to-sample
-    └── go_nogo.py        #   Go/no-go inhibitory control
+├── Core inference
+│   ├── generative_model.py      GenerativeModel dataclass (A, B, C, D, E)
+│   ├── agent.py                 AnalyticAgent — single-agent AIF loop
+│   ├── jax_native.py            BatchAgent — vmap-parallel agents
+│   ├── jax_core.py              Shared primitives: softmax, safe_log, entropy
+│   ├── free_energy.py           Variational and expected free energy
+│   ├── sequential_efe.py        Multi-step EFE via jax.lax.scan
+│   └── policy.py                Action selection, habits, precision
+│
+├── Learning
+│   ├── learning.py              Differentiable HMM (jax.grad through NLL)
+│   └── deep_aif.py              Neural encoder/decoder generative models
+│
+├── Extended models
+│   ├── hierarchical.py          Multi-level temporal abstraction
+│   ├── multitask.py             Compositional cognitive task batteries
+│   └── multitask_agent.py       MultitaskAgent with task switching
+│
+├── Computational psychiatry
+│   ├── metacognition.py         Meta-d', m-ratio, precision calibration
+│   ├── hgf/                     Hierarchical Gaussian Filter
+│   │   ├── updates.py           Binary & continuous update equations
+│   │   ├── graph.py             Generalized n-level graph HGF
+│   │   ├── bridge.py            HGF → discrete action bridge
+│   │   └── learning.py          Differentiable parameter learning
+│   ├── ddm/                     Drift-Diffusion Models
+│   │   ├── wiener.py            Navarro-Fuss density (pure JAX)
+│   │   ├── bridge.py            EFE ↔ DDM parameter mapping
+│   │   └── fitting.py           MLE / Bayesian / hierarchical fitting
+│   └── normative/               Normative modeling
+│       ├── blr.py               Bayesian Linear Regression + B-splines
+│       ├── warping.py           SHASH likelihood warping
+│       ├── combat.py            ComBat multi-site harmonization
+│       └── bridge.py            Z-score → VFE bridge
+│
+├── Environments
+│   ├── envs/cognitive_tasks.py  20 Yang et al. (2019) tasks
+│   └── envs/neurogym_bridge.py  NeuroGym adapter
+│
+└── Benchmarks
+    ├── t_maze.py                T-maze (8 states, 5 obs, 4 actions)
+    ├── go_nogo.py               Go/no-go inhibitory control
+    ├── delayed_match.py         Delayed match-to-sample
+    ├── context_dm.py            Context-dependent matching
+    ├── cognitive_battery.py     Full Yang et al. battery
+    └── neuronav_wrappers.py     neuronav GridEnv → GenerativeModel
 ```
+
+---
 
 ## Core concepts
 
@@ -107,32 +139,23 @@ Multi-factor and multi-modality models are supported — pass lists of arrays.
 
 ### Free energy
 
-- **VFE** (Variational Free Energy): divergence between beliefs and observations — drives perception
-- **EFE** (Expected Free Energy): expected VFE under future policies — drives action
+- **VFE** (Variational Free Energy) — divergence between beliefs and observations; drives *perception*
+- **EFE** (Expected Free Energy) — expected VFE under future policies; drives *action*
   - **Pragmatic** term: preference satisfaction (`-E[ln P(o|C)]`)
   - **Epistemic** term: ambiguity reduction (`-E[H[P(o|s)]]`)
 
 Lower G = better policy. The `EFEDecomposition` NamedTuple exposes both terms for analysis.
 
-### Sequential EFE
-
-Multi-step policy evaluation via forward rollout:
-
-```python
-# Evaluate a 3-step policy [action0, action1, action2]
-G = alf.sequential_efe(A, B, C, D, policy=np.array([0, 1, 0]), gamma=4.0)
-```
-
-Uses `jax.lax.scan` for JIT compilation and automatic differentiation through the temporal rollout.
-
 ### JAX scaling pattern
 
 ```
-1 agent      →  AnalyticAgent (NumPy, for clarity and debugging)
-N agents     →  BatchAgent + jax.vmap (sub-linear GPU scaling)
-1000+ regions →  normative_model_vmap (parallel population analysis)
-1000+ subjects → ddm.fit_ddm_hierarchical + numpyro (Bayesian hierarchy)
+1 agent       →  AnalyticAgent           NumPy, for clarity and debugging
+N agents      →  BatchAgent + jax.vmap   sub-linear GPU scaling
+1000+ regions →  normative_model_vmap    parallel population analysis
+1000+ subjects → fit_ddm_hierarchical    Bayesian hierarchy via numpyro
 ```
+
+---
 
 ## Modules
 
@@ -166,10 +189,10 @@ A_learned = result.A  # explicit likelihood matrix via Bayes' rule
 ```
 
 Two architectures:
-- **Encoder** (`obs → Q(s|o)`): fast but prone to degenerate solutions
-- **Decoder** (`state → P(o|s)`, preferred): learns P(o|s) explicitly, uses Bayes' rule for inference
+- **Encoder** (`obs → Q(s|o)`) — fast but prone to degenerate solutions
+- **Decoder** (`state → P(o|s)`, preferred) — learns P(o|s) explicitly, uses Bayes' rule for inference
 
-Pure JAX — no Flax, Haiku, or Equinox dependency. Parameters are lists of `(weight, bias)` tuples for transparent pytree handling.
+Pure JAX — no Flax, Haiku, or Equinox dependency. Parameters are `(weight, bias)` tuples for transparent pytree handling.
 
 ### Hierarchical models
 
@@ -216,7 +239,7 @@ result = fit_ddm_mle(rt_data, accuracy_data)
 
 # Map Active Inference quantities to DDM parameters
 ddm_params = efe_to_ddm(delta_G=2.0, gamma=4.0, E_ratio=0.6)
-# drift v = gamma * delta_G, boundary a = gamma, bias z = ln E
+# drift v = gamma * delta_G,  boundary a = gamma,  bias z = ln E
 ```
 
 MLE, Bayesian (numpyro), and hierarchical Bayesian fitting for multi-subject data.
@@ -235,9 +258,9 @@ result = fit_meta_d_mle(hits=80, misses=20, FA=15, CR=85, nRatings=4)
 agent = MetacognitiveAgent(gm, gamma=4.0, window_size=20)
 ```
 
-- `EFEMonitor`: online tracking of EFE prediction accuracy
-- `MetacognitiveAgent`: wraps AnalyticAgent with confidence calibration
-- `PopulationMetacognition`: aggregate stats across agent populations
+- `EFEMonitor` — online tracking of EFE prediction accuracy
+- `MetacognitiveAgent` — wraps AnalyticAgent with confidence calibration
+- `PopulationMetacognition` — aggregate stats across agent populations
 
 ### Normative modeling
 
@@ -272,16 +295,11 @@ action, info = agent.step([obs])
 
 Three composition modes: `independent`, `shared_dynamics`, `compositional` (factored state spaces).
 
-## Conventions
-
-- **EFE sign**: lower G = better policy (minimize expected free energy)
-- **JAX functions**: prefixed with `jax_` (e.g., `jax_variational_free_energy`)
-- **Matrix indexing**: `B[:, s, a]` = P(s' | s, a) — destination states in rows, source states in columns
-- **Numerical stability**: all core functions use `safe_log` (epsilon-clipped) and `safe_normalize` from `jax_core.py`
+---
 
 ## Installation
 
-Requires Python >= 3.10.
+Requires **Python >= 3.10**. Tested on **3.11** and **3.12** in CI.
 
 ```bash
 pip install alf-aif                              # core only
@@ -289,11 +307,28 @@ pip install "alf-aif[learning]"                  # + optax for gradient descent
 pip install "alf-aif[ddm]"                       # + scipy for SDT functions
 pip install "alf-aif[metacognition]"             # + numpyro + scipy
 pip install "alf-aif[normative]"                 # + scipy for B-splines
+pip install "alf-aif[pymdp]"                     # + pymdp interop adapter
 pip install "alf-aif[all]"                       # everything
 pip install "alf-aif[dev]"                       # all + pytest + ruff + mypy
 ```
 
-Core dependencies: `jax >= 0.4.20`, `jaxlib >= 0.4.20`, `numpy >= 1.24`. Everything else is optional.
+<details>
+<summary><b>Dependency map</b></summary>
+
+| Extra | Packages added | Unlocks |
+|-------|---------------|---------|
+| *(core)* | `jax >= 0.4.20`, `numpy >= 1.24` | GenerativeModel, agents, free energy, sequential EFE, HGF, deep AIF |
+| `learning` | `optax >= 0.1.7` | Adam optimizer for `learn_model` (SGD fallback without) |
+| `ddm` | `scipy >= 1.10` | Norm CDF for SDT, DDM fitting |
+| `metacognition` | `numpyro >= 0.13.0`, `scipy >= 1.10` | Hierarchical Bayesian meta-d' |
+| `normative` | `scipy >= 1.10` | B-spline basis for BLR |
+| `pymdp` | `inferactively-pymdp >= 1.0.0` | `alf_to_pymdp`, `pymdp_to_alf` adapters |
+| `test` | `pytest >= 7.0`, `pytest-xdist`, `scipy >= 1.10` | Test suite |
+| `dev` | all + `ruff`, `mypy` | Linting and type checking |
+
+</details>
+
+---
 
 ## Testing
 
@@ -310,9 +345,28 @@ pytest alf/tests/test_integration.py             # cross-module integration
 
 Oracle validation tests (`test_*_oracle.py`) benchmark against reference implementations: HDDM, metadPy, and pyhgf.
 
+**CI** runs on every push to `main` and on all PRs: Python 3.11 + 3.12, ruff lint/format, no-mock enforcement, full pytest suite.
+
+---
+
+## Conventions
+
+| Convention | Detail |
+|-----------|--------|
+| **EFE sign** | Lower G = better policy (minimize expected free energy) |
+| **JAX functions** | Prefixed with `jax_` (e.g., `jax_variational_free_energy`) |
+| **A matrix** | `(n_obs, n_states)` — P(observation \| state) |
+| **B matrix** | `(n_states, n_states, n_actions)` — P(next_state \| state, action) |
+| **B indexing** | `B[:, s, a]` = P(s' \| s, a) — destinations in rows, sources in columns |
+| **Numerical stability** | `safe_log` (epsilon-clipped) and `safe_normalize` from `jax_core.py` |
+
+---
+
 ## Used by
 
 - [spinning-up-alf](https://github.com/m9h/spinning-up-alf) — educational curriculum covering RL, Active Inference, and computational neuroscience (Modules 08-16)
+
+---
 
 ## References
 
@@ -324,6 +378,8 @@ Oracle validation tests (`test_*_oracle.py`) benchmark against reference impleme
 - Marquand, Rezek, Buitelaar & Beckmann (2016). *Understanding heterogeneity in clinical cohorts using normative models.* Biological Psychiatry.
 - Tschantz, Millidge et al. (2020). *Reinforcement Learning through Active Inference.* arXiv:2002.12636.
 - Yang, Joglekar, Song et al. (2019). *Task representations in neural networks trained to perform many cognitive tasks.* Nature Neuroscience.
+
+---
 
 ## License
 
