@@ -14,7 +14,7 @@ tags: [alf, active-inference, jax, architecture, module-map, conventions]
 
 ```bash
 cd /home/mhough/dev/alf
-pytest alf/tests/ -v   # 87 tests + 1 xfail
+pytest alf/tests/ -v   # 439 tests
 ```
 
 ## Module map
@@ -26,12 +26,19 @@ pytest alf/tests/ -v   # 87 tests + 1 xfail
 | `free_energy.py` | VFE, EFE decomposition, JAX-native versions |
 | `sequential_efe.py` | Multi-step EFE via forward rollout (jax.lax.scan) |
 | `jax_native.py` | BatchAgent — vmapped batch agents (1-1000+) |
+| `jax_core.py` | Shared JAX primitives: softmax, safe_log, entropy, etc. |
 | `learning.py` | Differentiable HMM parameter learning |
-| `deep_aif.py` | Neural network generative models |
+| `deep_aif.py` | Neural network generative models (encoder/decoder) |
 | `hierarchical.py` | Multi-level models, context-dependent A, cross-level inference |
 | `policy.py` | Softmax action selection, habit learning, precision dynamics |
-| `benchmarks/t_maze.py` | T-maze benchmark (8 states, 5 obs, 4 actions) |
-| `benchmarks/neuronav_wrappers.py` | Bridge neuronav GridEnv → GenerativeModel |
+| `multitask.py` | Compositional generative models for cognitive task batteries |
+| `multitask_agent.py` | MultitaskAgent with efficient task switching |
+| `metacognition.py` | Meta-d', m-ratio, EFEMonitor, MetacognitiveAgent |
+| `hgf/` | Hierarchical Gaussian Filter (updates, graph, bridge, learning) |
+| `ddm/` | Drift-Diffusion Models (Wiener density, bridge, fitting) |
+| `normative/` | Normative modeling (BLR, SHASH warping, ComBat, VFE bridge) |
+| `envs/` | cognitive_tasks.py (Yang 2019), neurogym_bridge.py |
+| `benchmarks/` | T-maze, Go/No-Go, delayed match, context DM, cognitive battery, neuronav wrappers |
 | `compat.py` | ALF ↔ pymdp v1.0.0 adapter (alf_to_pymdp, pymdp_to_alf, EFE conversion) |
 
 ## pymdp interop
