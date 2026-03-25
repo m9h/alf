@@ -122,6 +122,12 @@ from alf.normative import (
     normative_model_vmap,
 )
 
+# pymdp compatibility (optional — requires inferactively-pymdp>=1.0.0)
+try:
+    from alf.compat import alf_to_pymdp, pymdp_to_alf, neg_efe_to_G, G_to_neg_efe
+except ImportError:
+    pass
+
 __version__ = "0.1.0"
 
 __all__ = [
@@ -200,4 +206,9 @@ __all__ = [
     "normative",
     "normative_model",
     "normative_model_vmap",
+    # pymdp compat (available when inferactively-pymdp installed)
+    "alf_to_pymdp",
+    "pymdp_to_alf",
+    "neg_efe_to_G",
+    "G_to_neg_efe",
 ]

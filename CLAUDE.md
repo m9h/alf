@@ -32,6 +32,16 @@ pytest alf/tests/ -v   # 87 tests + 1 xfail
 | `policy.py` | Softmax action selection, habit learning, precision dynamics |
 | `benchmarks/t_maze.py` | T-maze benchmark (8 states, 5 obs, 4 actions) |
 | `benchmarks/neuronav_wrappers.py` | Bridge neuronav GridEnv → GenerativeModel |
+| `compat.py` | ALF ↔ pymdp v1.0.0 adapter (alf_to_pymdp, pymdp_to_alf, EFE conversion) |
+
+## pymdp interop
+
+ALF complements pymdp v1.0.0 (JAX-first). Install with `pip install inferactively-pymdp`.
+
+- `alf.alf_to_pymdp(gm)` → pymdp Agent (adds batch dim, converts to float32)
+- `alf.pymdp_to_alf(agent)` → ALF GenerativeModel (strips batch dim)
+- `alf.neg_efe_to_G(neg_efe)` → G (pymdp higher=better → ALF lower=better)
+- `alf.G_to_neg_efe(G)` → neg_efe (reverse)
 
 ## Key conventions
 
