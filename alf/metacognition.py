@@ -652,10 +652,10 @@ class MetacognitiveAgent:
 
     Args:
         inner_agent: The AnalyticAgent to wrap. Can also accept a
-            GenerativeModel, in which case an AnalyticAgent is created
-            internally.
+            GenerativeModel (creates an AnalyticAgent internally) or
+            a pymdp Agent (converted to ALF GM, then wrapped).
         gamma: Initial policy precision. Only used if inner_agent is a
-            GenerativeModel. Default 4.0.
+            GenerativeModel or pymdp Agent. Default 4.0.
         monitor_decay: EMA decay for the EFEMonitor. Default 0.95.
         monitor_window: Window size for the EFEMonitor. Default 50.
         gamma_learning_rate: Learning rate for gamma adjustment based
@@ -670,7 +670,7 @@ class MetacognitiveAgent:
 
     def __init__(
         self,
-        inner_agent: AnalyticAgent | GenerativeModel,
+        inner_agent,
         gamma: float = 4.0,
         monitor_decay: float = 0.95,
         monitor_window: int = 50,
@@ -682,8 +682,13 @@ class MetacognitiveAgent:
     ):
         if isinstance(inner_agent, GenerativeModel):
             self.agent = AnalyticAgent(inner_agent, gamma=gamma, seed=seed)
-        else:
+        elif isinstance(inner_agent, AnalyticAgent):
             self.agent = inner_agent
+        else:
+            # Assume pymdp Agent — convert to ALF
+            from alf.compat import pymdp_to_alf
+            gm = pymdp_to_alf(inner_agent)
+            self.agent = AnalyticAgent(gm, gamma=gamma, seed=seed)
 
         self.monitor = EFEMonitor(
             decay=monitor_decay,

@@ -37,6 +37,7 @@ from alf.ddm.wiener import (
 )
 from alf.ddm.bridge import (
     efe_to_ddm,
+    neg_efe_to_ddm,
     ddm_to_policy_probs,
 )
 from alf.ddm.fitting import (
@@ -60,6 +61,7 @@ __all__ = [
     "simulate_ddm",
     # Bridge
     "efe_to_ddm",
+    "neg_efe_to_ddm",
     "ddm_to_policy_probs",
     # Fitting
     "DDMFitResult",

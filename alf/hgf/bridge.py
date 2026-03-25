@@ -115,6 +115,8 @@ class HGFPerceptualAgent:
 
     Args:
         gm: Generative model with B, C matrices for action selection.
+            Accepts either an ALF GenerativeModel or a pymdp Agent
+            (which will be converted to ALF GM internally).
         hgf_params: HGF parameters (BinaryHGFParams or ContinuousHGFParams).
         gamma: Policy precision (inverse temperature). Default 4.0.
         state_range: Range for discretizing HGF beliefs.
@@ -123,12 +125,15 @@ class HGFPerceptualAgent:
 
     def __init__(
         self,
-        gm: GenerativeModel,
+        gm,
         hgf_params: BinaryHGFParams | ContinuousHGFParams,
         gamma: float = 4.0,
         state_range: tuple[float, float] = (-3.0, 3.0),
         seed: int = 42,
     ):
+        if not isinstance(gm, GenerativeModel):
+            from alf.compat import pymdp_to_alf
+            gm = pymdp_to_alf(gm)
         self.gm = gm
         self.hgf_params = hgf_params
         self.gamma = gamma

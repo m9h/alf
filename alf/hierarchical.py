@@ -205,6 +205,33 @@ class HierarchicalGenerativeModel:
     def __init__(self, levels: list[HierarchicalLevel]):
         self.levels = list(levels)
 
+    @classmethod
+    def from_pymdp(cls, agent, higher_levels: list[HierarchicalLevel] = None,
+                   level_name: str = "sensorimotor") -> "HierarchicalGenerativeModel":
+        """Create a hierarchy with the lowest level from a pymdp Agent.
+
+        Extracts the A, B, C, D matrices from a pymdp Agent (stripping the
+        batch dimension) and uses them as the lowest-level (fastest) model.
+        Additional higher levels can be appended.
+
+        Args:
+            agent: pymdp.agent.Agent instance.
+            higher_levels: Optional list of HierarchicalLevel objects for
+                context/strategy levels above the base sensorimotor level.
+            level_name: Name for the base level.
+
+        Returns:
+            HierarchicalGenerativeModel with the pymdp model as level 0.
+        """
+        from alf.compat import pymdp_to_alf
+        gm = pymdp_to_alf(agent)
+        base_level = HierarchicalLevel(
+            A=gm.A[0], B=gm.B[0], C=gm.C[0], D=gm.D[0],
+            temporal_scale=1, level_name=level_name,
+        )
+        levels = [base_level] + (higher_levels or [])
+        return cls(levels)
+
     @property
     def num_levels(self) -> int:
         return len(self.levels)
