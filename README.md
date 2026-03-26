@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/m9h/alf/actions/workflows/ci.yml/badge.svg)](https://github.com/m9h/alf/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![JAX](https://img.shields.io/badge/JAX-%E2%89%A5%200.4.20-9cf.svg)](https://github.com/google/jax)
+[![JAX](https://img.shields.io/badge/JAX-%E2%89%A5%200.5.0-9cf.svg)](https://github.com/google/jax)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Tests: 439](https://img.shields.io/badge/tests-439-brightgreen.svg)](alf/tests/)
 
@@ -317,7 +317,7 @@ pip install "alf-aif[dev]"                       # all + pytest + ruff + mypy
 
 | Extra | Packages added | Unlocks |
 |-------|---------------|---------|
-| *(core)* | `jax >= 0.4.20`, `numpy >= 1.24` | GenerativeModel, agents, free energy, sequential EFE, HGF, deep AIF |
+| *(core)* | `jax >= 0.5.0`, `numpy >= 1.24` | GenerativeModel, agents, free energy, sequential EFE, HGF, deep AIF |
 | `learning` | `optax >= 0.1.7` | Adam optimizer for `learn_model` (SGD fallback without) |
 | `ddm` | `scipy >= 1.10` | Norm CDF for SDT, DDM fitting |
 | `metacognition` | `numpyro >= 0.13.0`, `scipy >= 1.10` | Hierarchical Bayesian meta-d' |

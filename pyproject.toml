@@ -20,8 +20,8 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "jax>=0.4.20",
-    "jaxlib>=0.4.20",
+    "jax>=0.5.0",
+    "jaxlib>=0.5.0",
     "numpy>=1.24",
 ]
 
