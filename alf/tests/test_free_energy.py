@@ -705,6 +705,209 @@ class TestTMazeEFE:
 
 
 # =========================================================================
+# Test 10: Multi-factor tensor A matrices in free_energy_from_beliefs
+# =========================================================================
+
+class TestMultiFactorTensorA:
+    """free_energy_from_beliefs should handle multi-factor tensor A matrices.
+
+    When a model has multiple state factors (e.g., 'location' and 'context'),
+    the A matrix becomes a tensor with shape (n_obs, n_states_f1, n_states_f2).
+    The VFE computation must:
+      1. Form the joint belief via outer product of per-factor beliefs.
+      2. Contract the tensor A with the joint belief to get P(o|beliefs).
+      3. Compute VFE using the marginalized likelihood.
+    """
+
+    @staticmethod
+    def _make_two_factor_model():
+        """Create a 2-factor model with a tensor A matrix.
+
+        Factor 1 (location): 3 states
+        Factor 2 (context):  2 states
+        Observations: 4 outcomes
+
+        A has shape (4, 3, 2) — P(o | location, context).
+        B has shape (n_states_f, n_states_f, n_actions_f) per factor.
+        """
+        np.random.seed(42)
+
+        n_obs = 4
+        n_states_f1 = 3  # location
+        n_states_f2 = 2  # context
+
+        # Build a tensor A: shape (n_obs, n_states_f1, n_states_f2)
+        A_raw = np.random.dirichlet(np.ones(n_obs), size=(n_states_f1, n_states_f2))
+        # A_raw is (n_states_f1, n_states_f2, n_obs), transpose to (n_obs, f1, f2)
+        A_tensor = A_raw.transpose(2, 0, 1)
+        # Verify columns sum to 1 over observations
+        assert np.allclose(A_tensor.sum(axis=0), 1.0)
+
+        # B matrices: one per factor
+        # Factor 1: 3 states, 2 actions
+        B1 = np.zeros((n_states_f1, n_states_f1, 2))
+        B1[:, :, 0] = np.eye(n_states_f1)
+        B1[:, :, 1] = np.roll(np.eye(n_states_f1), 1, axis=0)
+
+        # Factor 2: 2 states, 2 actions
+        B2 = np.zeros((n_states_f2, n_states_f2, 2))
+        B2[:, :, 0] = np.eye(n_states_f2)
+        B2[:, :, 1] = np.array([[0, 1], [1, 0]], dtype=float)
+
+        C = np.array([1.0, 0.5, -0.5, -1.0])  # preferences
+        D1 = np.array([1.0, 0.0, 0.0])  # start at location 0
+        D2 = np.array([0.5, 0.5])       # uniform over context
+
+        gm = GenerativeModel(
+            A=[A_tensor],
+            B=[B1, B2],
+            C=[C],
+            D=[D1, D2],
+            T=1,
+        )
+        return gm
+
+    def test_multi_factor_vfe_runs(self):
+        """free_energy_from_beliefs should not raise for tensor A matrices."""
+        gm = self._make_two_factor_model()
+
+        beliefs = [
+            np.array([0.8, 0.1, 0.1]),  # location beliefs
+            np.array([0.6, 0.4]),        # context beliefs
+        ]
+        observations = [0]  # observed outcome index
+
+        # This should NOT raise NotImplementedError
+        F = free_energy_from_beliefs(gm, beliefs, observations)
+        assert np.isfinite(F), f"VFE should be finite, got {F}"
+
+    def test_multi_factor_vfe_matches_manual(self):
+        """VFE from multi-factor model should match manual tensor contraction.
+
+        Under mean-field q(s1,s2) = q_1(s1) * q_2(s2), the VFE is:
+
+          F = sum_f KL[q_f || D_f] - E_q[ln A(o | s1, s2)]
+
+        where the expected log-likelihood is:
+
+          E_q[ln A(o|s1,s2)] = sum_{s1,s2} q_1(s1)*q_2(s2) * ln A[o, s1, s2]
+        """
+        gm = self._make_two_factor_model()
+
+        beliefs_f1 = np.array([0.8, 0.1, 0.1])
+        beliefs_f2 = np.array([0.6, 0.4])
+        beliefs = [beliefs_f1, beliefs_f2]
+        obs = 0
+        observations = [obs]
+
+        eps = 1e-16
+
+        # Joint belief via outer product
+        joint = np.outer(beliefs_f1, beliefs_f2)  # (3, 2)
+
+        # Expected log-likelihood:
+        # E_q[ln A(o|s1,s2)] = sum_{s1,s2} q_1(s1)*q_2(s2) * ln A[o, s1, s2]
+        A_tensor = gm.A[0]
+        log_a_obs = np.log(np.clip(A_tensor[obs], eps, None))
+        ell = np.sum(joint * log_a_obs)
+
+        # KL terms for each factor
+        kl_f1 = np.sum(beliefs_f1 * (
+            np.log(np.clip(beliefs_f1, eps, None))
+            - np.log(np.clip(gm.D[0], eps, None))
+        ))
+        kl_f2 = np.sum(beliefs_f2 * (
+            np.log(np.clip(beliefs_f2, eps, None))
+            - np.log(np.clip(gm.D[1], eps, None))
+        ))
+
+        # Manual VFE = sum_f KL[q_f || D_f] - E_q[ln A(o|s)]
+        F_manual = kl_f1 + kl_f2 - ell
+
+        F_computed = free_energy_from_beliefs(gm, beliefs, observations)
+
+        np.testing.assert_allclose(
+            F_computed, F_manual, atol=1e-10,
+            err_msg="Multi-factor VFE should match manual tensor contraction"
+        )
+
+    def test_multi_factor_reduces_to_single_factor(self):
+        """When one factor has 1 state, multi-factor VFE = single-factor VFE.
+
+        If factor 2 has only 1 state, the tensor A of shape (n_obs, n_f1, 1)
+        should give the same result as a 2D A of shape (n_obs, n_f1).
+        """
+        n_obs = 3
+        n_states = 4
+
+        # Build a 2D A matrix
+        np.random.seed(123)
+        A_2d = np.random.dirichlet(np.ones(n_obs), size=n_states).T  # (n_obs, n_states)
+
+        # Build equivalent tensor A: shape (n_obs, n_states, 1)
+        A_tensor = A_2d[:, :, np.newaxis]
+
+        B1 = np.zeros((n_states, n_states, 2))
+        B1[:, :, 0] = np.eye(n_states)
+        B1[:, :, 1] = np.eye(n_states)
+
+        # Trivial second factor: 1 state, 1 action
+        B2 = np.ones((1, 1, 1))
+
+        C = np.zeros(n_obs)
+        D1 = np.ones(n_states) / n_states
+        D2 = np.ones(1)  # single state
+
+        # Single-factor model (2D A)
+        gm_single = GenerativeModel(A=[A_2d], B=[B1], C=[C], D=[D1], T=1)
+
+        # Multi-factor model (tensor A)
+        gm_multi = GenerativeModel(
+            A=[A_tensor], B=[B1, B2], C=[C], D=[D1, D2], T=1
+        )
+
+        beliefs_single = [np.array([0.4, 0.3, 0.2, 0.1])]
+        beliefs_multi = [np.array([0.4, 0.3, 0.2, 0.1]), np.array([1.0])]
+        observations = [1]
+
+        F_single = free_energy_from_beliefs(gm_single, beliefs_single, observations)
+        F_multi = free_energy_from_beliefs(gm_multi, beliefs_multi, observations)
+
+        np.testing.assert_allclose(
+            F_multi, F_single, atol=1e-10,
+            err_msg="Multi-factor with trivial 2nd factor should match single-factor VFE"
+        )
+
+    def test_vfe_at_prior_kl_vanishes(self):
+        """When q_f = D_f for all factors, KL terms vanish.
+
+        At q = D, the VFE reduces to -E_D[ln A(o | s1, s2)]:
+
+          F = 0 - sum_{s1,s2} D_1(s1)*D_2(s2) * ln A[o, s1, s2]
+        """
+        gm = self._make_two_factor_model()
+
+        # Use prior beliefs
+        beliefs_prior = [gm.D[0].copy(), gm.D[1].copy()]
+        obs = 0
+        observations = [obs]
+
+        F_at_prior = free_energy_from_beliefs(gm, beliefs_prior, observations)
+
+        # At q = D, KL terms are 0, so F = -E_D[ln A(o|s)]
+        eps = 1e-16
+        joint_prior = np.outer(gm.D[0], gm.D[1])
+        log_a_obs = np.log(np.clip(gm.A[0][obs], eps, None))
+        expected_ll = np.sum(joint_prior * log_a_obs)
+        F_expected = -expected_ll
+
+        np.testing.assert_allclose(
+            F_at_prior, F_expected, atol=1e-10,
+            err_msg="VFE at prior beliefs should equal -E_D[ln A(o|s)]"
+        )
+
+
+# =========================================================================
 # Run all tests
 # =========================================================================
 
