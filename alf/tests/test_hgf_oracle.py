@@ -213,9 +213,77 @@ def test_continuous_hgf_constant_input_converges():
 
 @pytest.mark.skipif(not HAS_PYHGF, reason="pyhgf not installed")
 def test_binary_hgf_matches_pyhgf():
-    """Compare binary HGF output against pyhgf reference implementation."""
-    # This test will be fleshed out when pyhgf is available
-    pytest.skip("pyhgf comparison not yet implemented")
+    """Compare binary HGF output against pyhgf reference implementation.
+
+    Runs the same binary observation sequence through both alf's binary_hgf
+    and pyhgf's Network API with identical parameters, then asserts that
+    mu_2, pi_2, and per-trial surprise trajectories match within tolerance.
+    """
+    from pyhgf import load_data
+    from pyhgf.model import Network
+    from pyhgf.response import first_level_binary_surprise
+
+    # Load pyhgf's canonical binary dataset
+    u, _y = load_data("binary")
+    u = np.asarray(u, dtype=float).ravel()
+
+    # Shared parameters
+    omega_2 = -2.0
+    mu_2_0 = 0.0
+    sigma_2_0 = 1.0
+
+    # --- Run pyhgf ---
+    network = Network()
+    network.add_nodes(kind="binary-state")
+    network.add_nodes(
+        kind="continuous-state",
+        node_parameters={
+            "tonic_volatility": omega_2,
+            "mean": mu_2_0,
+            "precision": 1.0 / sigma_2_0,
+        },
+        value_children=0,
+    )
+    network.input_data(input_data=u.reshape(-1, 1))
+
+    pyhgf_mu = np.array(network.node_trajectories[1]["mean"])
+    pyhgf_pi = np.array(network.node_trajectories[1]["precision"])
+    pyhgf_surprise = np.array(
+        network.surprise(response_function=first_level_binary_surprise)
+    )
+
+    # --- Run alf ---
+    params = BinaryHGFParams(
+        omega_2=jnp.array(omega_2),
+        mu_2_0=jnp.array(mu_2_0),
+        sigma_2_0=jnp.array(sigma_2_0),
+    )
+    alf_result = binary_hgf(jnp.array(u), params)
+    alf_mu = np.array(alf_result.mu[:, 0])
+    alf_pi = np.array(alf_result.pi[:, 0])
+    alf_surprise = np.array(alf_result.surprise)
+
+    # --- Compare trajectories ---
+    np.testing.assert_allclose(
+        alf_mu, pyhgf_mu, atol=1e-5,
+        err_msg="Binary HGF mu_2 trajectory diverges from pyhgf",
+    )
+    np.testing.assert_allclose(
+        alf_pi, pyhgf_pi, atol=1e-5,
+        err_msg="Binary HGF pi_2 trajectory diverges from pyhgf",
+    )
+    np.testing.assert_allclose(
+        alf_surprise, pyhgf_surprise, atol=1e-5,
+        err_msg="Binary HGF per-trial surprise diverges from pyhgf",
+    )
+
+    # Sanity: total surprise should also match
+    np.testing.assert_allclose(
+        float(np.sum(alf_surprise)),
+        float(np.sum(pyhgf_surprise)),
+        atol=1e-3,
+        err_msg="Binary HGF total surprise diverges from pyhgf",
+    )
 
 
 if __name__ == "__main__":
