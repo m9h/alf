@@ -105,6 +105,19 @@ def free_energy_from_beliefs(
 ) -> float:
     """Compute VFE given a GenerativeModel, beliefs, and observations.
 
+    Under a mean-field factorization q(s) = prod_f q_f(s_f), the VFE is:
+
+        F = sum_f E_{q_f}[ln q_f - ln D_f]
+            - sum_m E_q[ln A_m(o_m | s_1, ..., s_F)]
+
+    The expected log-likelihood for modality m is:
+
+        E_q[ln A_m(o_m | s)] = sum_{s1,...,sF} q_1(s1) ... q_F(s_F)
+                                 * ln A_m[o_m, s1, ..., sF]
+
+    For single-factor models (A is 2-D), this reduces to the standard
+    ``variational_free_energy`` computation.
+
     Args:
         gm: The generative model with A, D matrices.
         beliefs: Current posterior beliefs (list of arrays, one per factor).
@@ -113,25 +126,46 @@ def free_energy_from_beliefs(
     Returns:
         F: Total variational free energy (scalar).
     """
-    F_total = 0.0
+    eps = 1e-16
 
+    # --- KL divergence terms: sum_f KL[q_f || D_f] ---
+    kl_total = 0.0
     for f in range(gm.num_factors):
-        q_s = beliefs[f]
-        prior_s = gm.D[f]
+        q_f = np.asarray(beliefs[f], dtype=np.float64)
+        d_f = np.asarray(gm.D[f], dtype=np.float64)
+        kl_total += float(np.sum(
+            q_f * (np.log(np.clip(q_f, eps, None))
+                   - np.log(np.clip(d_f, eps, None)))
+        ))
 
-        for m in range(gm.num_modalities):
-            a_matrix = gm.A[m]
-            obs = observations[m]
+    # --- Expected log-likelihood: sum_m E_q[ln A_m(o_m | s)] ---
+    ell_total = 0.0
+    for m in range(gm.num_modalities):
+        a_matrix = np.asarray(gm.A[m], dtype=np.float64)
+        obs = observations[m]
 
-            if a_matrix.ndim == 2:
-                F_total += variational_free_energy(q_s, a_matrix, prior_s, obs)
-            else:
-                raise NotImplementedError(
-                    "Multi-factor tensor A matrices not yet supported. "
-                    "A matrix has ndim={}, expected 2.".format(a_matrix.ndim)
-                )
+        if a_matrix.ndim == 2:
+            # Single-factor: A has shape (n_obs, n_states)
+            # E_q[ln A(o|s)] = sum_s q(s) * ln A[o, s]
+            log_likelihood = np.log(np.clip(a_matrix[obs, :], eps, None))
+            q_f = np.asarray(beliefs[0], dtype=np.float64)
+            ell_total += float(np.dot(q_f, log_likelihood))
+        else:
+            # Multi-factor tensor A: shape (n_obs, n_f1, n_f2, ...)
+            # E_q[ln A(o|s1,...,sF)] = sum_{s1,...,sF} q_1(s1)*...*q_F(sF)
+            #                           * ln A[o, s1, ..., sF]
+            log_a_obs = np.log(np.clip(a_matrix[obs], eps, None))
 
-    return F_total
+            # Contract log_a_obs with each factor's beliefs successively.
+            # After each tensordot the leading axis is summed out.
+            result = log_a_obs
+            for f in range(gm.num_factors):
+                q_f = np.asarray(beliefs[f], dtype=np.float64)
+                result = np.tensordot(result, q_f, axes=([0], [0]))
+
+            ell_total += float(result)
+
+    return kl_total - ell_total
 
 
 # ---------------------------------------------------------------------------
