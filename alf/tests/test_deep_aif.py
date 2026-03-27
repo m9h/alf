@@ -401,17 +401,18 @@ class TestTraining:
 
 class TestARecovery:
 
-    @pytest.mark.xfail(
-        reason=(
-            "Known limitation: encoder-based (recognition model) architecture "
-            "P(s|o) has a degenerate optimum where the encoder maps all "
-            "observations to a single state. Fix requires decoder-based "
-            "architecture P(o|s). See deep_aif.py docstring."
-        ),
-        strict=False,
-    )
     def test_encoder_recovers_structure(self, synthetic_data):
-        """Trained encoder learns to distinguish observations."""
+        """Trained encoder learns to distinguish observations.
+
+        Without entropy regularization, the encoder can collapse to a
+        degenerate optimum that maps all observations to one state.
+        Setting ``entropy_reg > 0`` switches to an A-matrix-derived NLL
+        that constructs P(o|s) from the encoder logits via column-wise
+        softmax, plus a mutual-information diversity penalty.  This
+        avoids the degenerate optimum because when all observations map
+        to one state, the A matrix has identical columns, yielding a
+        worse NLL than one with diverse state assignments.
+        """
         result = learn_deep_model(
             observations_raw=synthetic_data["obs_onehot"],
             actions=synthetic_data["actions"],
@@ -423,6 +424,7 @@ class TestARecovery:
             transition_hidden=[64, 64],
             num_epochs=2000,
             lr=0.003,
+            entropy_reg=0.1,
             seed=42,
         )
 
