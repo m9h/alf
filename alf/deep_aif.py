@@ -13,7 +13,10 @@ Two architectures:
 
 1. **Encoder-based** (recognition model): Learns Q(s|o) directly. Fast
    inference but susceptible to a degenerate optimum where the encoder
-   maps all observations to a single state.
+   maps all observations to a single state.  Setting ``entropy_reg > 0``
+   in ``learn_deep_model`` switches to an A-matrix-derived NLL that
+   constructs P(o|s) from the encoder logits via column-wise softmax,
+   avoiding the degenerate optimum.
 
 2. **Decoder-based** (generative model): Learns P(o|s) and uses Bayes'
    rule for inference: Q(s|o) proportional to P(o|s) * P(s). Avoids
@@ -268,6 +271,40 @@ def _deep_forward_step(
     return (alpha_new, jnp.zeros(())), log_evidence
 
 
+def _amatrix_forward_step(
+    carry: tuple[jnp.ndarray, jnp.ndarray],
+    x: tuple[jnp.ndarray, jnp.ndarray],
+    A_matrix: jnp.ndarray,
+    transition_params: NetworkParams,
+    num_actions: int,
+) -> tuple[tuple[jnp.ndarray, jnp.ndarray], jnp.ndarray]:
+    """One step of forward filtering using a precomputed A matrix.
+
+    Like ``_deep_forward_step`` but takes P(o|s) from an explicit
+    A matrix instead of running the encoder at each timestep.
+    """
+    alpha_prev, _ = carry
+    obs_vec, action_idx = x
+
+    action_onehot = jax.nn.one_hot(action_idx, num_actions)
+    trans_logits = predict_transition(transition_params, alpha_prev, action_onehot)
+    predicted = jax.nn.softmax(trans_logits)
+    predicted = jnp.clip(predicted, 1e-16)
+
+    # P(o|s) for each state — obs_vec is one-hot so this selects the right row
+    likelihood = obs_vec @ A_matrix  # (num_states,)
+    likelihood = jnp.clip(likelihood, 1e-16)
+
+    alpha_unnorm = likelihood * predicted
+    evidence = jnp.sum(alpha_unnorm)
+    evidence = jnp.clip(evidence, 1e-16)
+    alpha_new = alpha_unnorm / evidence
+
+    log_evidence = jnp.log(evidence)
+
+    return (alpha_new, jnp.zeros(())), log_evidence
+
+
 def deep_analytic_nll(
     encoder_params: NetworkParams,
     transition_params: NetworkParams,
@@ -318,6 +355,171 @@ def deep_analytic_nll(
     return -total_log_likelihood
 
 
+def _encoder_A_matrix(
+    encoder_params: NetworkParams,
+    obs_dim: int,
+) -> jnp.ndarray:
+    """Derive a proper P(o|s) matrix from the encoder's logits.
+
+    The encoder maps each one-hot observation e_i to unnormalized
+    logits ``f(e_i)`` of shape ``(num_states,)``.  The logit matrix
+    ``L[i, s] = f(e_i)[s]`` relates observations to states.
+
+    To obtain P(o|s), we apply column-wise softmax: for each state s,
+    ``P(o|s) = softmax_o(L[:, s])``.  This normalizes across
+    observations for each state, producing a valid categorical
+    distribution per state.
+
+    Operating on raw logits (before any row-wise softmax) avoids
+    gradient saturation that occurs when ``softmax(logits)`` is nearly
+    one-hot — the column-wise softmax always receives well-scaled
+    inputs as long as the logits differ across observations.
+
+    Returns:
+        A matrix of shape ``(obs_dim, num_states)``, each column summing
+        to 1.
+    """
+    identity = jnp.eye(obs_dim)
+
+    def logits_for_obs(obs_vec):
+        return encode(encoder_params, obs_vec)
+
+    # L[i, s] = logit for (obs=i, state=s), shape (obs_dim, num_states)
+    L = jax.vmap(logits_for_obs)(identity)
+    # Column-wise softmax -> P(o|s) for each state
+    A = jax.nn.softmax(L, axis=0)
+    return A
+
+
+def encoder_amatrix_nll(
+    encoder_params: NetworkParams,
+    transition_params: NetworkParams,
+    D: jnp.ndarray,
+    observations_raw: jnp.ndarray,
+    actions: jnp.ndarray,
+    num_actions: int,
+) -> jnp.ndarray:
+    """NLL using encoder-derived A matrix P(o|s) for forward filtering.
+
+    Instead of using the raw encoder output Q(s|o) as likelihood at each
+    step, this function first constructs a proper observation model
+    P(o|s) from the encoder and uses that in the forward filter.
+
+    This avoids the degenerate optimum of the standard encoder NLL:
+    when the encoder maps all observations to one state, the derived
+    A matrix has identical columns so every observation is equally
+    likely under every state, yielding a *worse* NLL than a model that
+    distinguishes states.  In contrast, the standard encoder NLL can
+    achieve a low loss by collapsing because Q(s|o) is used directly
+    as a weighting factor rather than a true likelihood.
+
+    Args:
+        encoder_params: Encoder network parameters.
+        transition_params: Transition network parameters.
+        D: Prior over initial states, shape (num_states,).
+        observations_raw: Raw observation vectors, shape (T, obs_dim).
+            Must be one-hot encoded.
+        actions: Action indices, shape (T,). Integer-valued.
+        num_actions: Number of possible actions.
+
+    Returns:
+        Scalar negative log-likelihood.
+    """
+    obs_dim = observations_raw.shape[1]
+    A = _encoder_A_matrix(encoder_params, obs_dim)
+
+    first_obs = observations_raw[0]
+    likelihood_0 = first_obs @ A    # (num_states,)
+    likelihood_0 = jnp.clip(likelihood_0, 1e-16)
+
+    alpha_0_unnorm = likelihood_0 * D
+    evidence_0 = jnp.sum(alpha_0_unnorm)
+    evidence_0 = jnp.clip(evidence_0, 1e-16)
+    alpha_0 = alpha_0_unnorm / evidence_0
+    log_evidence_0 = jnp.log(evidence_0)
+
+    def scan_step(carry, x):
+        return _amatrix_forward_step(
+            carry, x, A, transition_params, num_actions
+        )
+
+    remaining_obs = observations_raw[1:]
+    transition_actions = actions[:-1]
+
+    init_carry = (alpha_0, jnp.zeros(()))
+    _, log_evidences = jax.lax.scan(
+        scan_step,
+        init_carry,
+        (remaining_obs, transition_actions),
+    )
+
+    total_log_likelihood = log_evidence_0 + jnp.sum(log_evidences)
+    return -total_log_likelihood
+
+
+# ---------------------------------------------------------------------------
+# Batch diversity regularization (anti-collapse for encoder)
+# ---------------------------------------------------------------------------
+
+def _batch_diversity_penalty(
+    encoder_params: NetworkParams,
+    observations: jnp.ndarray,
+) -> jnp.ndarray:
+    """Negative mutual information I(obs; state) across unique observations.
+
+    Encourages both diverse state usage AND clean observation-to-state
+    mapping by maximizing the mutual information between observations
+    and inferred states:
+
+        I(o; s) = H[E_o[q(s|o)]] - E_o[H[q(s|o)]]
+
+    The first term (marginal entropy) encourages all states to be used.
+    The second term (conditional entropy) encourages each observation to
+    map cleanly to a specific state, not spread mass uniformly.
+
+    Uses the unique rows of the observation matrix so that each distinct
+    observation type is weighted equally, regardless of frequency in the
+    training sequence.
+
+    Returns ``-I(o; s)`` so that minimizing the loss maximizes MI.
+
+    Args:
+        encoder_params: Encoder network parameters.
+        observations: Batch of observation vectors, shape (T, obs_dim).
+
+    Returns:
+        Scalar ``-I(o; s) <= 0``.  More negative means higher MI
+        (better diversity).  Adding this to the NLL encourages the
+        optimizer to increase mutual information.
+    """
+    # Use identity matrix as canonical observation set — one vector per
+    # discrete observation type.  This ensures every observation gets
+    # equal weight and avoids duplicates skewing the marginal.
+    obs_dim = observations.shape[1]
+    canonical_obs = jnp.eye(obs_dim)
+
+    def posterior_for_obs(obs):
+        logits = encode(encoder_params, obs)
+        return jax.nn.softmax(logits)
+
+    posteriors = jax.vmap(posterior_for_obs)(canonical_obs)   # (obs_dim, K)
+    mean_posterior = jnp.mean(posteriors, axis=0)              # (K,)
+
+    # H[mean_q(s)] — marginal entropy (want high)
+    marginal_entropy = -jnp.sum(
+        mean_posterior * jnp.log(mean_posterior + 1e-16)
+    )
+
+    # E_o[H[q(s|o)]] — average conditional entropy (want low)
+    cond_entropies = -jnp.sum(
+        posteriors * jnp.log(posteriors + 1e-16), axis=1
+    )  # (obs_dim,)
+    mean_cond_entropy = jnp.mean(cond_entropies)
+
+    mutual_info = marginal_entropy - mean_cond_entropy
+    return -mutual_info
+
+
 # ---------------------------------------------------------------------------
 # Deep learning result and training loop
 # ---------------------------------------------------------------------------
@@ -340,6 +542,7 @@ def learn_deep_model(
     transition_hidden: list[int] = [32, 32],
     num_epochs: int = 200,
     lr: float = 0.001,
+    entropy_reg: float = 0.0,
     seed: int = 0,
     verbose: bool = False,
 ) -> DeepLearningResult:
@@ -356,6 +559,13 @@ def learn_deep_model(
         transition_hidden: Hidden layer widths for transition MLP.
         num_epochs: Number of gradient descent steps.
         lr: Learning rate.
+        entropy_reg: Batch diversity regularization strength.  When > 0,
+            switches to an A-matrix-derived NLL that constructs P(o|s)
+            from the encoder logits via column-wise softmax, avoiding the
+            degenerate optimum where all observations map to one state.
+            Also adds a mutual-information diversity penalty scaled by
+            ``entropy_reg * T``.  Typical values: 0.01 -- 1.0.
+            Default 0.0 (standard encoder NLL, no regularization).
         seed: Random seed for network initialization.
         verbose: If True, print loss every 20 epochs.
 
@@ -374,16 +584,32 @@ def learn_deep_model(
     enc_params = init_encoder(key1, obs_dim, encoder_hidden, num_states)
     trans_params = init_transition(key2, num_states, num_actions, transition_hidden)
 
-    def loss_fn(enc_p, trans_p):
-        return deep_analytic_nll(
-            enc_p, trans_p, D_jnp, obs_jnp, act_jnp, num_actions
-        )
+    _entropy_reg = float(entropy_reg)
+    _T = float(obs_jnp.shape[0])
+
+    if _entropy_reg > 0.0:
+        # Use the A-matrix-based NLL which derives P(o|s) from the
+        # encoder.  This avoids the degenerate optimum because when all
+        # observations map to one state, the A matrix has identical
+        # columns and the NLL gets *worse*.  An optional MI penalty
+        # further encourages diverse state usage.
+        def loss_fn(enc_p, trans_p):
+            nll = encoder_amatrix_nll(
+                enc_p, trans_p, D_jnp, obs_jnp, act_jnp, num_actions
+            )
+            diversity_penalty = _batch_diversity_penalty(enc_p, obs_jnp)
+            return nll + _entropy_reg * _T * diversity_penalty
+    else:
+        def loss_fn(enc_p, trans_p):
+            return deep_analytic_nll(
+                enc_p, trans_p, D_jnp, obs_jnp, act_jnp, num_actions
+            )
 
     grad_fn = jax.grad(loss_fn, argnums=(0, 1))
 
-    def _apply_grads(params, grads, lr):
+    def _apply_grads(params, grads, learning_rate):
         return [
-            (w - lr * gw, b - lr * gb)
+            (w - learning_rate * gw, b - learning_rate * gb)
             for (w, b), (gw, gb) in zip(params, grads)
         ]
 
@@ -401,7 +627,7 @@ def learn_deep_model(
         loss_val = float(loss)
         loss_history.append(loss_val)
         if verbose and (epoch % 20 == 0 or epoch == num_epochs - 1):
-            print(f"  Epoch {epoch:4d}: NLL = {loss_val:.4f}")
+            print(f"  Epoch {epoch:4d}: loss = {loss_val:.4f}")
 
     return DeepLearningResult(
         encoder_params=enc_params,
