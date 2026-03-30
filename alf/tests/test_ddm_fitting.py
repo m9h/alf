@@ -38,7 +38,7 @@ from alf.ddm.fitting import (
 def _has_numpyro():
     """Check if numpyro is available."""
     try:
-        import numpyro
+        import numpyro  # noqa: F401
         return True
     except ImportError:
         return False

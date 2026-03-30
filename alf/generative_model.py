@@ -69,6 +69,22 @@ class GenerativeModel:
         self.C = [np.asarray(c, dtype=np.float64) for c in self.C]
         self.D = [np.asarray(d, dtype=np.float64) for d in self.D]
 
+        # Normalization logic
+        self.A = [a / np.maximum(a.sum(axis=0, keepdims=True), 1e-12) for a in self.A]
+        self.B = [b / np.maximum(b.sum(axis=0, keepdims=True), 1e-12) for b in self.B]
+        self.D = [d / np.maximum(d.sum(), 1e-12) for d in self.D]
+
+        # Validation logic
+        for i, a in enumerate(self.A):
+            if np.any(a < 0):
+                raise ValueError(f"Matrix A[{i}] contains negative probabilities.")
+        for i, b in enumerate(self.B):
+            if np.any(b < 0):
+                raise ValueError(f"Matrix B[{i}] contains negative probabilities.")
+        for i, d in enumerate(self.D):
+            if np.any(d < 0):
+                raise ValueError(f"Matrix D[{i}] contains negative probabilities.")
+
         self.num_modalities = len(self.A)
         self.num_factors = len(self.B)
         self.num_obs = [a.shape[0] for a in self.A]

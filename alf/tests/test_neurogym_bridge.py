@@ -25,13 +25,14 @@ pytestmark = pytest.mark.skipif(
     not _HAS_NEUROGYM, reason="neurogym not installed"
 )
 
-from alf.envs.neurogym_bridge import (
-    NeurogymAdapter,
-    BinDiscretizer,
-    KMeansDiscretizer,
-)
-from alf.generative_model import GenerativeModel
-from alf.agent import AnalyticAgent
+if _HAS_NEUROGYM:
+    from alf.envs.neurogym_bridge import (
+        NeurogymAdapter,
+        BinDiscretizer,
+        KMeansDiscretizer,
+    )
+    from alf.generative_model import GenerativeModel
+    from alf.agent import AnalyticAgent
 
 
 # ---------------------------------------------------------------------------

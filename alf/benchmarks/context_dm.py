@@ -443,7 +443,7 @@ def run_context_dm(
                 break
 
         # Check if agent used context correctly
-        correct_action = _correct_response(
+        _correct_response(
             DIR_LEFT if mod1_dir == "left" else DIR_RIGHT,
             DIR_LEFT if mod2_dir == "left" else DIR_RIGHT,
             CTX_MOD1 if context == "mod1" else CTX_MOD2,

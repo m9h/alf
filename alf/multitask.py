@@ -846,7 +846,7 @@ def build_simple_task_pair(
     Returns:
         MultitaskGenerativeModel in 'independent' mode.
     """
-    rng = np.random.RandomState(seed)
+    np.random.RandomState(seed)
 
     def _random_stochastic(rows, cols, rng_):
         """Generate a random column-stochastic matrix."""

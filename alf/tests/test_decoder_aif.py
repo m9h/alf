@@ -27,7 +27,6 @@ from alf.deep_aif import (
     init_gaussian_decoder,
     init_transition,
     learn_decoder_model,
-    predict_transition,
 )
 from alf.learning import generate_data
 
@@ -92,12 +91,24 @@ def synthetic_data():
     A = A / A.sum(axis=0, keepdims=True)
 
     B = np.zeros((num_states, num_states, num_actions), dtype=np.float64)
-    B[1, 0, 0] = 0.9; B[0, 0, 0] = 0.05; B[2, 0, 0] = 0.05
-    B[2, 1, 0] = 0.9; B[0, 1, 0] = 0.05; B[1, 1, 0] = 0.05
-    B[0, 2, 0] = 0.9; B[1, 2, 0] = 0.05; B[2, 2, 0] = 0.05
-    B[0, 0, 1] = 0.9; B[1, 0, 1] = 0.05; B[2, 0, 1] = 0.05
-    B[1, 1, 1] = 0.9; B[0, 1, 1] = 0.05; B[2, 1, 1] = 0.05
-    B[2, 2, 1] = 0.9; B[0, 2, 1] = 0.05; B[1, 2, 1] = 0.05
+    B[1, 0, 0] = 0.9
+    B[0, 0, 0] = 0.05
+    B[2, 0, 0] = 0.05
+    B[2, 1, 0] = 0.9
+    B[0, 1, 0] = 0.05
+    B[1, 1, 0] = 0.05
+    B[0, 2, 0] = 0.9
+    B[1, 2, 0] = 0.05
+    B[2, 2, 0] = 0.05
+    B[0, 0, 1] = 0.9
+    B[1, 0, 1] = 0.05
+    B[2, 0, 1] = 0.05
+    B[1, 1, 1] = 0.9
+    B[0, 1, 1] = 0.05
+    B[2, 1, 1] = 0.05
+    B[2, 2, 1] = 0.9
+    B[0, 2, 1] = 0.05
+    B[1, 2, 1] = 0.05
 
     D = np.array([1.0 / 3, 1.0 / 3, 1.0 / 3])
 

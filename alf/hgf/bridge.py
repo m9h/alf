@@ -15,7 +15,7 @@ References:
         Inference. Journal of Mathematical Psychology.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 import jax
 import jax.numpy as jnp

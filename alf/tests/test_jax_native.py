@@ -8,7 +8,6 @@ from alf.generative_model import GenerativeModel
 from alf.jax_core import softmax
 from alf.jax_native import (
     jax_select_action, jax_update_habits,
-    jax_update_precision, jax_compute_efe_analytic,
     jax_evaluate_all_actions, BatchAgent,
 )
 from alf import policy as np_policy

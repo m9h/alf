@@ -26,7 +26,7 @@ References:
         Active Inference. arXiv:2002.12636.
 """
 
-from typing import Any, NamedTuple, Optional
+from typing import NamedTuple, Optional
 
 import jax
 import jax.numpy as jnp

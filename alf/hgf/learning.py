@@ -10,7 +10,7 @@ References:
         the Hierarchical Gaussian Filter. Frontiers in Human Neuroscience.
 """
 
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import jax
 import jax.numpy as jnp
