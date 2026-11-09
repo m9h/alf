@@ -2,7 +2,9 @@
 
 *pymdp vs. alf-native vs. the broader JAX ecosystem*
 
-**Decision**: Keep alf-native. This document records the analysis.
+**Decision**: Keep alf-native for inspectable teaching code and cognitive extensions, with optional reference-framework adapters.
+
+**November 2026 correction:** the original comparison below overstated differences from pymdp. Current pymdp is JAX-first and exposes model-fitting extras (pybefit and NumPyro). Its capabilities do not justify claims that ALF uniquely supports differentiable inference. See the [current review](2026-review-and-symposium.md) for versioned test evidence and unresolved ALF numerical issues. Earlier performance figures below are historical claims, not new benchmark results.
 
 ---
 
@@ -29,7 +31,7 @@
 
 ### Cons
 
-- **No `jax.grad` through inference** — This is the critical gap. pymdp's belief update is analytic Bayesian (conjugate updates), not a differentiable forward algorithm. Our `learning.py` differentiates through `jax.lax.scan`-based forward filtering to learn A/B matrices via gradient descent. pymdp cannot do this — it uses Dirichlet parameter counting, not gradient-based learning.
+- **Learning interface differences** — ALF exposes a small forward-filter NLL implementation directly. pymdp provides JAX inference and model-fitting extras; evaluate the APIs on matched data instead of inferring a lack of differentiability from analytic belief updates.
 - **No hierarchical models** — pymdp has no equivalent to our `hierarchical.py` (multi-level temporal abstraction, context-dependent A matrices, cross-level epistemic value).
 - **No HGF, DDM, metacognition, normative modeling** — These are alf-only. pymdp is strictly discrete state-space POMDP inference.
 - **No deep generative models** — Our `deep_aif.py` (encoder/decoder neural A/B) has no pymdp equivalent.
@@ -118,7 +120,7 @@ The Chris Lu blog post ([meta-disco](https://chrislu.page/blog/meta-disco/)) and
 
 | Criterion | pymdp | alf-native | Hybrid | Weight |
 |-----------|-------|------------|--------|--------|
-| Differentiable learning | No | **Yes** | Partial | **Critical** |
+| Differentiable learning | JAX + fitting extras | Explicit forward-filter NLL | API-dependent | **Critical** |
 | Community/credibility | **Best** | Weakest | Good | High |
 | Maintenance cost | **Lowest** | Highest | Medium | High |
 | Hierarchical/deep models | No | **Yes** | Yes | High |
@@ -133,9 +135,9 @@ The Chris Lu blog post ([meta-disco](https://chrislu.page/blog/meta-disco/)) and
 
 **Keep alf-native for core inference. Use pymdp as a reference implementation for numerical validation, not as a runtime dependency.**
 
-The fundamental reason: alf's value proposition is differentiability through inference. This is the property that makes the entire JAX ecosystem (PureJaxRL, Gymnax, Brax) powerful — end-to-end compilation and gradient flow. pymdp v1.0 is JAX-native for *execution* (jit, vmap) but not for *learning* (no `jax.grad` through belief updates). Adopting it would trade away the single most important architectural advantage.
+The fundamental reason: alf's value proposition is differentiability through inference. This is the property that makes the entire JAX ecosystem (PureJaxRL, Gymnax, Brax) powerful — end-to-end compilation and gradient flow. pymdp is also JAX-native and supports model fitting. The practical reason to retain ALF is its explicit teaching interface and cognitive modules; replacing the core would require a careful numerical and API comparison.
 
-The modules that justify alf's existence — gradient-based A/B learning, deep generative models, hierarchical inference, HGF, DDM, metacognition, normative modeling — have no pymdp equivalents and require the differentiable forward algorithm.
+ALF combines explicit A/B learning, neural generative models, hierarchical inference, HGF, DDM, metacognition and normative modeling. Their usefulness should be demonstrated individually, with validated numerical behavior and reproducible examples.
 
 **Where pymdp helps:** Reference implementation for numerical validation. Cite it, benchmark against it, ensure our outputs match for standard discrete inference. But don't depend on it at runtime.
 

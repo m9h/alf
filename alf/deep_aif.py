@@ -548,6 +548,9 @@ def learn_deep_model(
 ) -> DeepLearningResult:
     """Train deep encoder and transition networks on observation-action data.
 
+    Optimizes mean loss with Adam when optax is installed (the learning
+    extra), otherwise SGD. Loss history retains the total sequence loss.
+
     Args:
         observations_raw: Raw observation vectors, shape (T, obs_dim).
         actions: Action indices, shape (T,). Integer-valued.
@@ -605,29 +608,36 @@ def learn_deep_model(
                 enc_p, trans_p, D_jnp, obs_jnp, act_jnp, num_actions
             )
 
-    grad_fn = jax.grad(loss_fn, argnums=(0, 1))
+    # Optimize mean loss so sequence length does not change the step size.
+    # Preserve total loss in history for compatibility with the NLL helpers.
+    from alf.learning import _try_import_optax
 
-    def _apply_grads(params, grads, learning_rate):
-        return [
-            (w - learning_rate * gw, b - learning_rate * gb)
-            for (w, b), (gw, gb) in zip(params, grads)
-        ]
+    optax = _try_import_optax()
+    params = (enc_params, trans_params)
+    optimizer = optax.adam(lr) if optax is not None else None
+    opt_state = optimizer.init(params) if optimizer is not None else None
+
+    def mean_loss(params):
+        return loss_fn(*params) / _T
 
     @jax.jit
-    def sgd_step(enc_p, trans_p):
-        loss = loss_fn(enc_p, trans_p)
-        grad_enc, grad_trans = grad_fn(enc_p, trans_p)
-        new_enc = _apply_grads(enc_p, grad_enc, lr)
-        new_trans = _apply_grads(trans_p, grad_trans, lr)
-        return new_enc, new_trans, loss
+    def update_step(params, opt_state):
+        loss, grads = jax.value_and_grad(mean_loss)(params)
+        if optimizer is not None:
+            updates, opt_state = optimizer.update(grads, opt_state, params)
+            params = optax.apply_updates(params, updates)
+        else:
+            params = jax.tree_util.tree_map(lambda p, g: p - lr * g, params, grads)
+        return params, opt_state, loss * _T
 
     loss_history = []
     for epoch in range(num_epochs):
-        enc_params, trans_params, loss = sgd_step(enc_params, trans_params)
+        params, opt_state, loss = update_step(params, opt_state)
         loss_val = float(loss)
         loss_history.append(loss_val)
         if verbose and (epoch % 20 == 0 or epoch == num_epochs - 1):
             print(f"  Epoch {epoch:4d}: loss = {loss_val:.4f}")
+    enc_params, trans_params = params
 
     return DeepLearningResult(
         encoder_params=enc_params,
@@ -644,22 +654,20 @@ def extract_A_matrix(
     encoder_params: NetworkParams,
     obs_dim: int,
 ) -> jnp.ndarray:
-    """Extract an approximate A matrix from the encoder network.
+    """Extract the categorical likelihood P(o|s) used by encoder_amatrix_nll.
+
+    Columns sum to one. This is the column-softmax of encoder logits on
+    one-hot observations, not the recognition distribution Q(s|o). To get
+    the latter, use ``jax.nn.softmax(encode(params, observation))``.
 
     Args:
         encoder_params: Trained encoder parameters.
         obs_dim: Number of discrete observations (= obs vector dim).
 
     Returns:
-        Approximate A matrix, shape (obs_dim, num_states).
+        Likelihood matrix, shape (obs_dim, num_states).
     """
-    identity = jnp.eye(obs_dim)
-
-    def encode_one(obs_vec):
-        logits = encode(encoder_params, obs_vec)
-        return jax.nn.softmax(logits)
-
-    return jax.vmap(encode_one)(identity)
+    return _encoder_A_matrix(encoder_params, obs_dim)
 
 
 # ===========================================================================

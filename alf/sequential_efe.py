@@ -1,16 +1,17 @@
 """Sequential Expected Free Energy for multi-step planning.
 
 Implements analytic sequential EFE following Da Costa et al. (2020) and
-Smith et al. (2022). Rolls forward through time steps sequentially,
-capturing the *value of information* that emerges from conditional planning.
+Smith et al. (2022). Rolls beliefs forward under a fixed action sequence.
+This is open-loop policy evaluation: it does not branch on hypothetical
+observations or model future actions conditioned on those observations.
 
 For a T-step policy pi = [a_0, a_1, ..., a_{T-1}]:
 
     G(pi) = sum_{t=0}^{T-1} G_t(pi)
 
 where:
-    G_t(pi) = -E_{Q(o_t|pi)}[ln P(o_t)]        (pragmatic)
-              - E_{Q(s_t|pi)}[H[P(o_t|s_t)]]    (epistemic)
+    G_t(pi) = -E_{Q(o_t|pi)}[C(o_t)] - I_Q(s_t; o_t)
+    I_Q(s_t; o_t) = H[Q(o_t)] - E_{Q(s_t)}[H[P(o_t|s_t)]]
 
 and beliefs are propagated SEQUENTIALLY:
     Q(s_0) = D                                    (prior)
@@ -66,7 +67,8 @@ def sequential_efe(
         C: Log-preferences over observations, shape (num_obs,).
         D: Prior beliefs over initial states, shape (num_states,).
         policy: Action sequence, shape (T,) with integer action indices.
-        gamma: Precision scaling (default 1.0).
+        gamma: Retained for compatibility; unused here. Policy precision
+            is applied by the action selector.
 
     Returns:
         G: Total expected free energy (lower = better for the agent).
@@ -95,7 +97,7 @@ def sequential_efe(
         q_o = q_o / q_o.sum()
 
         pragmatic = np.sum(q_o * C)
-        epistemic = np.sum(q_s_next * entropy_per_state)
+        epistemic = -np.sum(q_o * np.log(q_o)) - np.sum(q_s_next * entropy_per_state)
 
         G_total += -pragmatic - epistemic
         q_s = q_s_next
@@ -203,7 +205,8 @@ if JAX_AVAILABLE:
             C: Log-preferences, shape (num_obs,).
             D: Prior beliefs, shape (num_states,).
             policy: Action sequence, shape (T,) with integer action indices.
-            gamma: Precision scaling (default 1.0).
+            gamma: Retained for compatibility; unused here. Policy precision
+                is applied by the action selector.
 
         Returns:
             Scalar EFE value.
@@ -219,7 +222,7 @@ if JAX_AVAILABLE:
             q_o = safe_normalize(jnp.maximum(A @ q_s_next, 1e-16))
 
             pragmatic = jnp.sum(q_o * C)
-            epistemic = jnp.sum(q_s_next * entropy_per_state)
+            epistemic = _entropy(q_o) - jnp.sum(q_s_next * entropy_per_state)
 
             G_t = -pragmatic - epistemic
 

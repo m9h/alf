@@ -336,9 +336,12 @@ def hierarchical_efe(
 
     The action is applied at level 0 only.  The EFE includes:
     - Pragmatic term at each level (preference satisfaction).
-    - Epistemic term at each level (ambiguity reduction).
-    - Cross-level epistemic term for context-dependent levels (mutual
-      information between parent state and child observations).
+    - Information gain about the state at each level.
+    - For context-dependent levels, information gain about the joint
+      (state, parent context), assuming their predictive beliefs factorize.
+
+    Contributions are summed across levels; this is a local additive
+    objective, not the joint information gain of all observations.
 
     Parameters
     ----------
@@ -397,35 +400,17 @@ def hierarchical_efe(
         #    Contribution to G: -pragmatic   (lower G = better)
         pragmatic = float(np.sum(qo * level.C))
 
-        # -- Epistemic term (within-level ambiguity):
-        #    Expected entropy of observations given state:
-        #    sum_s Q(s') * H[P(o|s)]
-        #    High ambiguity contributes positively to G (bad).
-        log_A_eff = _log_stable(A_eff)
-        entropy_per_state = -np.sum(A_eff * log_A_eff, axis=0)  # (num_states,)
-        ambiguity = float(np.sum(qs_next * entropy_per_state))
-
-        G_level = -pragmatic + ambiguity
-
-        # -- Cross-level epistemic term (for context-dependent levels):
-        #    Mutual information between parent context and observations
-        if level.context_dependent and (i + 1) < n:
-            parent_beliefs_here = beliefs[i + 1]
-            # H(o) - H(o|c)
-            # H(o) already in qo
-            H_o = _entropy(qo)
-
-            # H(o|c) = sum_c Q(c) * H(o|c)
-            H_o_given_c = 0.0
-            for c in range(level.num_parent_states):
-                A_c = level.get_A_for_context(c)
-                qo_c = A_c @ qs_next
-                qo_c = np.maximum(qo_c, _EPS)
-                H_o_given_c += parent_beliefs_here[c] * _entropy(qo_c)
-
-            mutual_info = H_o - H_o_given_c
-            # Mutual information is valuable (reduces G)
-            G_level -= mutual_info
+        # Condition on both state and context before averaging entropy.
+        # Marginalizing context first would lose synergistic information
+        # (e.g. an XOR observation of state and context).
+        if level.context_dependent:
+            entropy_per_config = -np.sum(level.A * _log_stable(level.A), axis=1)
+            ambiguity = float(parent_beliefs @ entropy_per_config @ qs_next)
+        else:
+            entropy_per_state = -np.sum(level.A * _log_stable(level.A), axis=0)
+            ambiguity = float(qs_next @ entropy_per_state)
+        information_gain = _entropy(qo) - ambiguity
+        G_level = -pragmatic - information_gain
 
         G_total += w * G_level
 

@@ -4,11 +4,12 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![JAX](https://img.shields.io/badge/JAX-%E2%89%A5%200.5.0-9cf.svg)](https://github.com/google/jax)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
-[![Tests: 439](https://img.shields.io/badge/tests-439-brightgreen.svg)](alf/tests/)
 
 A standalone, JAX-native library for **Active Inference** on discrete POMDPs. Fully differentiable via `jax.grad`, vectorizable via `jax.vmap`, and GPU-acceleratable via `jax.jit`.
 
-> **The key idea:** ALF parameterizes generative model matrices in unconstrained log-space, maps them through softmax, and computes the negative log-likelihood via `jax.lax.scan`-based forward filtering. The entire pipeline — from raw parameters to observation likelihood — is a single differentiable computation graph. This is something no other active inference framework provides.
+> **The key idea:** ALF parameterizes generative model matrices in unconstrained log-space, maps them through softmax, and computes the negative log-likelihood via `jax.lax.scan`-based forward filtering. The pipeline from raw parameters to observation likelihood is a differentiable computation graph. pymdp also provides JAX-native inference and model fitting; ALF emphasizes explicit learning code and cognitive extensions.
+
+**Review status (November 2026):** dependency and notebook maintenance is documented in the [review and symposium plan](docs/2026-review-and-symposium.md). The EFE implementations now use state information gain, and both pre-existing learning-test failures are repaired with regression coverage. The review records the red–green evidence, API changes and remaining validation limits.
 
 ---
 
@@ -16,7 +17,7 @@ A standalone, JAX-native library for **Active Inference** on discrete POMDPs. Fu
 
 | Library | Backend | Differentiable learning | Best for |
 |---------|---------|------------------------|----------|
-| [pymdp](https://github.com/infer-actively/pymdp) | JAX (v1.0) | Dirichlet counting | Standard AIF experiments |
+| [pymdp](https://github.com/infer-actively/pymdp) | JAX (v1.0+) | Dirichlet updates and model-fitting extras | Standard AIF experiments and reference comparisons |
 | **ALF** | **JAX** | **`jax.grad` through forward algorithm** | **Learning, scaling, deep AIF, computational psychiatry** |
 | [PGMax/aif](https://github.com/vicariousinc/PGMax) | PGMax BP | Message passing | Large state spaces |
 
@@ -39,6 +40,17 @@ A standalone, JAX-native library for **Active Inference** on discrete POMDPs. Fu
 pip install alf-aif                    # core (JAX + NumPy only)
 pip install "alf-aif[all]"             # all optional dependencies
 ```
+
+For a reproducible checkout, use Python 3.12 and the tracked lockfile:
+
+```bash
+uv sync --locked --extra dev
+uv run --no-sync pytest alf/tests/
+```
+
+Python 3.10 remains supported with compatible versions selected by the lockfile.
+JAX selects its matching `jaxlib`; install accelerator support through JAX extras,
+following the [JAX installation guide](https://docs.jax.dev/en/latest/installation.html).
 
 ```python
 import alf
@@ -140,11 +152,11 @@ Multi-factor and multi-modality models are supported — pass lists of arrays.
 ### Free energy
 
 - **VFE** (Variational Free Energy) — divergence between beliefs and observations; drives *perception*
-- **EFE** (Expected Free Energy) — expected VFE under future policies; drives *action*
-  - **Pragmatic** term: preference satisfaction (`-E[ln P(o|C)]`)
-  - **Epistemic** term: ambiguity reduction (`-E[H[P(o|s)]]`)
+- **EFE** (Expected Free Energy) — the planning objective `G = -pragmatic - epistemic`
+  - **Pragmatic** value: expected supplied log preference, `E[C(o)]`
+  - **Epistemic** value: state information gain, `H[Q(o)] - E[H[P(o|s)]]`
 
-Lower G = better policy. The `EFEDecomposition` NamedTuple exposes both terms for analysis.
+Lower G = better policy. The `EFEDecomposition` NamedTuple exposes both values for analysis. Sequential evaluation is open-loop; it does not branch on hypothetical observations. Multimodal and hierarchical scores add local information terms, which may count overlapping information.
 
 ### JAX scaling pattern
 
@@ -166,11 +178,15 @@ Learn A and B matrices from observation-action sequences via gradient descent:
 ```python
 from alf import learn_model
 
-params, loss_history = learn_model(
-    gm, observations, actions,
-    learning_rate=1e-3, num_steps=500
+result = learn_model(
+    observations, actions, num_obs=3, num_states=3, num_actions=2,
+    lr=1e-3, num_epochs=500
 )
+loss_history = result.loss_history
 ```
+
+The action array has the same length as the observations; its last element is
+unused because each earlier action connects two successive observations.
 
 Internally: parameterize in log-space → softmax → forward-filter NLL → `jax.grad` → optax/SGD update. The forward algorithm runs entirely in `jax.lax.scan`, so the full pipeline is JIT-compiled and differentiable.
 
@@ -179,13 +195,13 @@ Internally: parameterize in log-space → softmax → forward-filter NLL → `ja
 Scale to high-dimensional observations with neural network A/B matrices:
 
 ```python
-from alf import learn_decoder_model
+from alf import learn_decoder_model, DecoderGenerativeModel
 
 result = learn_decoder_model(
-    observations, actions, num_states=8,
-    hidden_dims=[64, 32], learning_rate=1e-3
+    observations_raw, actions, obs_dim=5, num_states=8, num_actions=2,
+    decoder_hidden=[64, 32], lr=1e-3
 )
-A_learned = result.A  # explicit likelihood matrix via Bayes' rule
+A_learned = DecoderGenerativeModel.get_likelihood_matrix(result.decoder_params, num_states=8)
 ```
 
 Two architectures:
@@ -199,13 +215,13 @@ Pure JAX — no Flax, Haiku, or Equinox dependency. Parameters are `(weight, bia
 Multi-level temporal abstraction with context-dependent likelihood:
 
 ```python
-from alf import HierarchicalLevel, HierarchicalAgent
+from alf import HierarchicalLevel, HierarchicalGenerativeModel, HierarchicalAgent
 
 levels = [
     HierarchicalLevel(A=A_low, B=B_low, C=C_low, D=D_low, temporal_scale=1),
     HierarchicalLevel(A=A_high, B=B_high, C=C_high, D=D_high, temporal_scale=4),
 ]
-agent = HierarchicalAgent(levels, gamma=4.0)
+agent = HierarchicalAgent(HierarchicalGenerativeModel(levels), gamma=4.0)
 ```
 
 Upper levels modulate lower-level A matrices (top-down attention). Bottom-up and top-down belief propagation via alternating sweeps.
@@ -238,8 +254,8 @@ from alf.ddm import DDMParams, fit_ddm_mle, efe_to_ddm
 result = fit_ddm_mle(rt_data, accuracy_data)
 
 # Map Active Inference quantities to DDM parameters
-ddm_params = efe_to_ddm(delta_G=2.0, gamma=4.0, E_ratio=0.6)
-# drift v = gamma * delta_G,  boundary a = gamma,  bias z = ln E
+ddm_params = efe_to_ddm(np.array([2.0, 0.0]), gamma=4.0)
+# drift v = gamma * (G[0] - G[1]), boundary a = 1.5 * sqrt(gamma), bias w = 0.5
 ```
 
 MLE, Bayesian (numpyro), and hierarchical Bayesian fitting for multi-subject data.
@@ -251,7 +267,10 @@ Meta-d' estimation and precision calibration:
 ```python
 from alf.metacognition import fit_meta_d_mle, MetacognitiveAgent
 
-result = fit_meta_d_mle(hits=80, misses=20, FA=15, CR=85, nRatings=4)
+result = fit_meta_d_mle(
+    nR_S1=np.array([40, 25, 10, 5, 5, 5, 5, 5]),
+    nR_S2=np.array([5, 5, 5, 5, 5, 10, 25, 40]),
+)
 # result.d_prime, result.meta_d, result.m_ratio
 
 # Self-monitoring agent that adapts precision online
@@ -317,13 +336,13 @@ pip install "alf-aif[dev]"                       # all + pytest + ruff + mypy
 
 | Extra | Packages added | Unlocks |
 |-------|---------------|---------|
-| *(core)* | `jax >= 0.5.0`, `numpy >= 1.24` | GenerativeModel, agents, free energy, sequential EFE, HGF, deep AIF |
-| `learning` | `optax >= 0.1.7` | Adam optimizer for `learn_model` (SGD fallback without) |
-| `ddm` | `scipy >= 1.10` | Norm CDF for SDT, DDM fitting |
-| `metacognition` | `numpyro >= 0.13.0`, `scipy >= 1.10` | Hierarchical Bayesian meta-d' |
-| `normative` | `scipy >= 1.10` | B-spline basis for BLR |
-| `pymdp` | `inferactively-pymdp >= 1.0.0` | `alf_to_pymdp`, `pymdp_to_alf` adapters |
-| `test` | `pytest >= 7.0`, `pytest-xdist`, `scipy >= 1.10` | Test suite |
+| *(core)* | `jax >= 0.5.3`, `numpy >= 1.26` | GenerativeModel, agents, free energy, sequential EFE, HGF, deep AIF |
+| `learning` | `optax >= 0.2.4` | Adam for tabular and neural learning (SGD fallback without) |
+| `ddm` | `scipy >= 1.15`, `numpyro >= 0.19` | DDM fitting, including Bayesian fits |
+| `metacognition` | `numpyro >= 0.19`, `scipy >= 1.15` | Hierarchical Bayesian meta-d' |
+| `normative` | `scipy >= 1.15` | B-spline basis for BLR |
+| `pymdp` | `inferactively-pymdp >= 1.0.5` | `alf_to_pymdp`, `pymdp_to_alf` adapters |
+| `test` | `pytest >= 8.4`, `pytest-xdist`, `scipy >= 1.15` | Test suite |
 | `dev` | all + `ruff`, `mypy` | Linting and type checking |
 
 </details>
@@ -333,7 +352,7 @@ pip install "alf-aif[dev]"                       # all + pytest + ruff + mypy
 ## Testing
 
 ```bash
-pytest alf/tests/ -v                             # full suite (439 tests)
+uv run --no-sync pytest alf/tests/ -v             # full suite
 pytest alf/tests/test_jax_native.py              # BatchAgent tests
 pytest alf/tests/test_learning.py                # differentiable learning
 pytest alf/tests/test_hgf.py                     # HGF tests
@@ -345,7 +364,10 @@ pytest alf/tests/test_integration.py             # cross-module integration
 
 Oracle validation tests (`test_*_oracle.py`) benchmark against reference implementations: HDDM, metadPy, and pyhgf.
 
-**CI** runs on every push to `main` and on all PRs: Python 3.11 + 3.12, ruff lint/format, no-mock enforcement, full pytest suite.
+**CI** runs on every push to `main` and on all PRs: Python 3.10, 3.11 and 3.12,
+locked dependencies, no-mock enforcement, and the full pytest suite. Lint and
+format checks run in a separate job so existing style debt cannot prevent
+the numerical tests from running. See the review for baseline style debt and validation results.
 
 ---
 

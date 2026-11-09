@@ -2,7 +2,7 @@
 
 Verifies that:
 1. Sequential EFE matches single-step analytic EFE for T=1
-2. Cue-first policies dominate on T-maze with T=2
+2. T-maze scores reflect information gain under open-loop planning
 3. JAX version matches numpy version
 4. JIT compilation works correctly
 """
@@ -55,8 +55,12 @@ def test_single_step_matches_analytic():
         )
 
 
-def test_cue_first_dominates_t2():
-    """With T=2, cue-first policies should have lower G than arm-first."""
+def test_t_maze_open_loop_information_scores():
+    """Arms reveal the hidden condition perfectly; the cue is noisy.
+
+    Fixed action sequences do not model choosing an arm conditional on a cue.
+    Expected utility is zero by symmetry for these policies.
+    """
     gm = build_t_maze_model(cue_reliability=0.9, reward_magnitude=3.0, T=2)
     A = gm.A[0]
     B = gm.B[0]
@@ -80,14 +84,11 @@ def test_cue_first_dominates_t2():
     g_left_stay = sequential_efe(A, B, C, D, left_then_stay)
     g_right_stay = sequential_efe(A, B, C, D, right_then_stay)
 
-    # Cue-first should be better (lower G) than direct arm choices
-    best_cue_first = min(g_cue_left, g_cue_right)
-    worst_arm_first = min(g_left_direct, g_right_direct, g_left_stay, g_right_stay)
-
-    assert best_cue_first < worst_arm_first, (
-        f"Cue-first ({best_cue_first:.4f}) should have lower G than "
-        f"arm-first ({worst_arm_first:.4f})"
-    )
+    cue_ambiguity = -0.9 * np.log(0.9) - 0.1 * np.log(0.1)
+    np.testing.assert_allclose([g_cue_left, g_cue_right],
+                               -2 * np.log(2) + cue_ambiguity, atol=1e-10)
+    np.testing.assert_allclose([g_left_direct, g_right_direct, g_left_stay, g_right_stay],
+                               -2 * np.log(2), atol=1e-10)
 
     # Cue-then-left and cue-then-right should be symmetric
     np.testing.assert_allclose(
@@ -126,44 +127,20 @@ def test_evaluate_all_policies():
             )
             break
 
-    # Check that cue-first policies dominate in the full evaluation
-    cue_first_indices = []
-    arm_first_indices = []
-    for i, policy in enumerate(gm.policies):
-        first_action = policy[0, 0]
-        if first_action == ACT_CUE:
-            cue_first_indices.append(i)
-        elif first_action in (ACT_LEFT, ACT_RIGHT):
-            arm_first_indices.append(i)
-
-    best_cue = min(G[i] for i in cue_first_indices)
-    best_arm = min(G[i] for i in arm_first_indices)
-    assert best_cue < best_arm, (
-        f"Best cue-first G ({best_cue:.4f}) should be lower than "
-        f"best arm-first G ({best_arm:.4f})"
-    )
 
 
 def test_select_action():
-    """Test that select_action_sequential prefers cue-first."""
+    """Selected actions and probabilities agree with the policy posterior."""
     gm = build_t_maze_model(cue_reliability=0.9, T=2)
     beliefs = [gm.D[0].copy()]
     rng = np.random.RandomState(42)
-
-    # Run multiple selections to check distribution
-    cue_count = 0
-    num_samples = 100
-    for _ in range(num_samples):
-        action, info = select_action_sequential(
-            gm, beliefs, gamma=4.0, rng=rng,
-        )
-        if action == ACT_CUE:
-            cue_count += 1
-
-    cue_rate = cue_count / num_samples
-    assert cue_rate > 0.5, (
-        f"Agent should prefer cue action, but cue_rate={cue_rate:.2f}"
-    )
+    scores = evaluate_all_policies_sequential(gm, beliefs)
+    weights = np.exp(-4.0 * (scores - scores.min())) * gm.E
+    expected = weights / weights.sum()
+    for _ in range(10):
+        action, info = select_action_sequential(gm, beliefs, gamma=4.0, rng=rng)
+        np.testing.assert_allclose(info["policy_probs"], expected, atol=1e-12)
+        assert action == gm.policies[info["selected_policy_idx"], 0, 0]
 
 
 def test_cue_reliability_effect():
@@ -179,7 +156,7 @@ def test_cue_reliability_effect():
     g_high = sequential_efe(A_h, B_h, C_h, D_h, policy_cue_left)
     g_low = sequential_efe(A_l, B_l, C_l, D_l, policy_cue_left)
 
-    assert g_high != g_low, "Different reliability should give different G"
+    assert g_high < g_low, "A more reliable cue must provide more information"
 
 
 def test_jax_matches_numpy():
@@ -295,19 +272,9 @@ def test_jax_select_action_sequential():
     assert G.shape == (gm.num_policies,)
     np.testing.assert_allclose(float(probs.sum()), 1.0, atol=1e-6)
 
-    # Cue-first policies should have highest probability mass collectively
-    cue_first_prob = 0.0
-    arm_first_prob = 0.0
-    for i, policy in enumerate(gm.policies):
-        if policy[0, 0] == ACT_CUE:
-            cue_first_prob += float(probs[i])
-        elif policy[0, 0] in (ACT_LEFT, ACT_RIGHT):
-            arm_first_prob += float(probs[i])
-
-    assert cue_first_prob > arm_first_prob, (
-        f"Cue-first prob ({cue_first_prob:.4f}) should exceed "
-        f"arm-first prob ({arm_first_prob:.4f})"
-    )
+    # Compare all policies to the independently normalized Boltzmann weights.
+    weights = np.exp(-4 * (np.asarray(G) - np.min(G))) * gm.E
+    np.testing.assert_allclose(probs, weights / weights.sum(), atol=1e-6)
 
 
 if __name__ == "__main__":

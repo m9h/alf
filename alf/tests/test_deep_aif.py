@@ -445,8 +445,8 @@ class TestARecovery:
         """extract_A_matrix produces correct shape."""
         A = extract_A_matrix(encoder_params, model_spec["obs_dim"])
         assert A.shape == (model_spec["obs_dim"], model_spec["num_states"])
-        row_sums = jnp.sum(A, axis=1)
-        assert jnp.allclose(row_sums, 1.0, atol=1e-5)
+        col_sums = jnp.sum(A, axis=0)
+        assert jnp.allclose(col_sums, 1.0, atol=1e-5)
 
 
 # ---------------------------------------------------------------------------

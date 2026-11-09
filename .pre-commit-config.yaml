@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.6
+    rev: v0.17.4
     hooks:
       - id: ruff
         args: [--fix]
@@ -21,7 +21,7 @@ repos:
       - id: no-mock
         name: no-mock
         description: "Forbid unittest.mock usage in tests"
-        entry: bash -c 'grep -rn "MagicMock\|unittest\.mock\|from mock import\|@patch" tests/ test/ 2>/dev/null && exit 1 || exit 0'
+        entry: bash -c 'if grep -rn "MagicMock\|unittest\.mock\|from mock import\|@patch" alf/tests/ --include="*.py"; then exit 1; fi'
         language: system
         pass_filenames: false
         always_run: true

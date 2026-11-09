@@ -71,6 +71,7 @@ class AnalyticAgent:
         # History for analysis
         self.belief_history: list[list[np.ndarray]] = []
         self.action_history: list[int] = []
+        self.policy_history: list[int] = []
         self.efe_history: list[np.ndarray] = []
         self.policy_prob_history: list[np.ndarray] = []
 
@@ -91,6 +92,12 @@ class AnalyticAgent:
             Tuple of (action_index, info_dict).
         """
         # 1. Belief updating (analytic Bayesian update)
+        if self.policy_history:
+            previous_actions = self.gm.policies[self.policy_history[-1], 0]
+            self.beliefs = [
+                self.gm.B[f][:, :, int(previous_actions[f])] @ belief
+                for f, belief in enumerate(self.beliefs)
+            ]
         for f in range(self.gm.num_factors):
             for m in range(self.gm.num_modalities):
                 a_matrix = self.gm.A[m]
@@ -116,6 +123,7 @@ class AnalyticAgent:
         selected_policy = self.gm.policies[policy_idx]
         action = int(selected_policy[0, 0])
         self.action_history.append(action)
+        self.policy_history.append(int(policy_idx))
 
         info = {
             "beliefs": [b.copy() for b in self.beliefs],
@@ -131,12 +139,8 @@ class AnalyticAgent:
         Args:
             outcome_valence: How good the outcome was.
         """
-        if self.action_history:
-            last_policy_idx = (
-                self.policy_prob_history[-1].argmax()
-                if self.policy_prob_history
-                else 0
-            )
+        if self.policy_history:
+            last_policy_idx = self.policy_history[-1]
             self.E = alf_policy.update_habits(
                 self.E, last_policy_idx, outcome_valence,
                 learning_rate=self.learning_rate,
@@ -153,6 +157,7 @@ class AnalyticAgent:
         self.beliefs = [d.copy() for d in self.gm.D]
         self.belief_history.clear()
         self.action_history.clear()
+        self.policy_history.clear()
         self.efe_history.clear()
         self.policy_prob_history.clear()
 

@@ -137,7 +137,11 @@ def multifactor_sequential_efe(
         1. Predict next state per factor: Q(s_f') = B_f[:,:,a_f] @ Q(s_f)
         2. For each modality m, predict observations using the outer product
            of factor beliefs contracted through A_m.
-        3. Accumulate pragmatic (preference) and epistemic (ambiguity) terms.
+        3. Accumulate pragmatic value and state information gain per modality.
+
+    The epistemic term sums marginal information gains across modalities.
+    This is an additive approximation: correlated observations can count
+    the same information more than once. It is not joint observation MI.
 
     Args:
         A_list: List of likelihood matrices, one per modality. Each A_m has
@@ -204,21 +208,22 @@ def multifactor_sequential_efe(
             # Pragmatic value: E[C(o)]
             pragmatic = np.sum(q_o * C_m)
 
-            # Epistemic value: expected ambiguity
+            # Expected conditional entropy (ambiguity)
             # H[P(o|s)] averaged over predicted states
             log_A_m = np.log(np.clip(A_m, eps, None))
             # Entropy per joint-state configuration
             if A_m.ndim == 2 and num_factors == 1:
                 entropy_per_state = -np.sum(A_m * log_A_m, axis=0)
-                epistemic = np.sum(q_s_next[0] * entropy_per_state)
+                ambiguity = np.sum(q_s_next[0] * entropy_per_state)
             else:
                 entropy_per_config = -np.sum(A_m * log_A_m, axis=0)
                 # Contract with factor beliefs to get expected entropy
                 result = entropy_per_config.copy()
                 for f in range(num_factors - 1, -1, -1):
                     result = np.tensordot(result, q_s_next[f], axes=([-1], [0]))
-                epistemic = float(result)
+                ambiguity = float(result)
 
+            epistemic = -np.sum(q_o * np.log(q_o)) - ambiguity
             G_total += -pragmatic - epistemic
 
         q_s = q_s_next
