@@ -240,6 +240,8 @@ def learn_model(
     init_log_A: Optional[jnp.ndarray] = None,
     init_log_B: Optional[jnp.ndarray] = None,
     verbose: bool = False,
+    seed: int = 0,
+    num_restarts: int = 4,
 ) -> LearningResult:
     """Learn A and B matrices from observation-action sequences.
 
@@ -256,10 +258,37 @@ def learn_model(
         init_log_A: Initial unconstrained A parameters.
         init_log_B: Initial unconstrained B parameters.
         verbose: If True, print loss every 10 epochs.
+        seed: Reproducible initialization seed.
+        num_restarts: Independent initializations; select the lowest final
+            training NLL. Set to 1 for a single fit. Fully supplied initial
+            parameters are fitted once. Restarts do not guarantee recovery
+            of the global optimum or identifiable latent states.
 
     Returns:
         LearningResult with learned matrices and training history.
     """
+    if num_restarts < 1:
+        raise ValueError("num_restarts must be at least 1")
+    if num_restarts > 1 and (init_log_A is None or init_log_B is None):
+        candidates = [
+            learn_model(
+                observations, actions, num_obs, num_states, num_actions,
+                D=D, C=C, num_epochs=num_epochs, lr=lr,
+                init_log_A=init_log_A, init_log_B=init_log_B, verbose=verbose,
+                seed=seed + 2 * restart, num_restarts=1,
+            )
+            for restart in range(num_restarts)
+        ]
+
+        def final_nll(result):
+            return float(analytic_nll_single(
+                result.log_A_params[0], result.log_B_params[0],
+                jnp.asarray(result.generative_model.D[0]),
+                jnp.asarray(observations), jnp.asarray(actions),
+            ))
+
+        return min(candidates, key=final_nll)
+
     obs_jnp = jnp.array(observations, dtype=jnp.int32)
     act_jnp = jnp.array(actions, dtype=jnp.int32)
 
@@ -271,10 +300,10 @@ def learn_model(
     D_jnp = jnp.array(D)
 
     if init_log_A is None:
-        key = jax.random.PRNGKey(0)
+        key = jax.random.PRNGKey(seed)
         init_log_A = 0.1 * jax.random.normal(key, (num_obs, num_states))
     if init_log_B is None:
-        key = jax.random.PRNGKey(1)
+        key = jax.random.PRNGKey(seed + 1)
         init_log_B = 0.1 * jax.random.normal(key, (num_states, num_states, num_actions))
 
     def loss_fn(log_A, log_B):

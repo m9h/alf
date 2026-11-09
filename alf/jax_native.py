@@ -90,12 +90,12 @@ def jax_compute_efe_analytic(
 ) -> float:
     """Compute EFE analytically for single-factor, single-modality models.
 
-    G(a) = -E_Q(o')[ln P(o')] - E_Q(s')[H[P(o'|s')]]
+    G(a) = -E_Q(o')[C(o')] - I_Q(s'; o').
 
     Args:
         A: Likelihood matrix, shape (num_obs, num_states).
         B_action: Transition matrix for this action, shape (num_states, num_states).
-        C: Preferences, shape (num_obs,).
+        C: Log preferences, used as supplied, shape (num_obs,).
         beliefs: Current beliefs, shape (num_states,).
 
     Returns:
@@ -109,7 +109,7 @@ def jax_compute_efe_analytic(
     pragmatic = jnp.sum(predicted_obs * C)
 
     entropy_per_state = _entropy(A, axis=0)
-    epistemic = jnp.sum(predicted_states * entropy_per_state)
+    epistemic = _entropy(predicted_obs) - jnp.sum(predicted_states * entropy_per_state)
 
     return -pragmatic - epistemic
 

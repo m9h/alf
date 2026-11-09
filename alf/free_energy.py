@@ -11,8 +11,11 @@ The Variational Free Energy is:
       = -ELBO
 
 The Expected Free Energy G(pi) decomposes into:
-    G(pi) = -E_q[ln P(o|C)]  (pragmatic value)
-            - E_q[H[P(o|s)]]  (epistemic value / ambiguity reduction)
+    G(pi) = -E_q[C(o)] - I_q(s; o)
+    I_q(s; o) = H[Q(o)] - E_Q(s)[H[P(o|s)]]
+
+C is used as supplied (log preferences). Normalizing C with log-softmax
+adds a policy-independent constant for policies of equal length.
 
 The generalized free energy (Parr & Friston, 2019) unifies past inference
 (VFE) and future planning (EFE) into a single objective.
@@ -49,8 +52,8 @@ class EFEDecomposition(NamedTuple):
         G_total: Total expected free energy G(a).
         pragmatic: Pragmatic value (preference satisfaction).
             E_q[ln P(o|C)] — how well predicted observations match preferences.
-        epistemic: Epistemic value (information gain / ambiguity reduction).
-            -E_q[H[P(o|s)]] — negative expected ambiguity.
+        epistemic: Expected information gain about hidden states.
+            I_q(s; o) = E_Q(o)[KL(Q(s|o) || Q(s))].
     """
     G_total: float
     pragmatic: float
@@ -211,10 +214,11 @@ def expected_free_energy_decomposed(
     # Pragmatic value: E_Q(o')[C(o')] = sum_o Q(o') * C(o')
     pragmatic = float(np.sum(predicted_obs * C))
 
-    # Epistemic value: -E_Q(s')[H[P(o|s)]]
+    # Information gain = predictive entropy minus expected ambiguity.
     log_A = np.log(np.clip(A, eps, None))
     entropy_per_state = -np.sum(A * log_A, axis=0)
-    epistemic = float(-np.sum(predicted_states * entropy_per_state))
+    predictive_entropy = -np.sum(predicted_obs * np.log(predicted_obs))
+    epistemic = float(predictive_entropy - np.sum(predicted_states * entropy_per_state))
 
     G_total = -pragmatic - epistemic
 
@@ -350,7 +354,7 @@ def jax_expected_free_energy_decomposed(
 
     # Epistemic value
     entropy_per_state = _entropy(A, axis=0)
-    epistemic = -jnp.sum(predicted_states * entropy_per_state)
+    epistemic = _entropy(predicted_obs) - jnp.sum(predicted_states * entropy_per_state)
 
     G_total = -pragmatic - epistemic
 

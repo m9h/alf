@@ -185,13 +185,11 @@ def test_sequential_epistemic_drive():
     g_left = sequential_efe(A, B, C, D, left_then_stay)
     g_right = sequential_efe(A, B, C, D, right_then_stay)
 
-    # Core assertion: cue-first policies dominate
-    best_cue = min(g_cue_left, g_cue_right)
-    best_arm = min(g_left, g_right)
-    assert best_cue < best_arm, (
-        f"Cue-first ({best_cue:.4f}) should have lower G than "
-        f"arm-first ({best_arm:.4f})"
-    )
+    # Arms perfectly reveal reward condition; a noisy cue reveals less.
+    # This rollout has no branching on future observations.
+    h_cue = -0.9 * np.log(0.9) - 0.1 * np.log(0.1)
+    np.testing.assert_allclose(g_cue_left, -2 * np.log(2) + h_cue, atol=1e-10)
+    np.testing.assert_allclose(g_left, -2 * np.log(2), atol=1e-10)
 
     # Symmetry checks
     np.testing.assert_allclose(
@@ -203,20 +201,17 @@ def test_sequential_epistemic_drive():
         err_msg="Direct left and direct right should be symmetric",
     )
 
-    # Full policy evaluation should also show cue-first dominance
-    G_all = evaluate_all_policies_sequential(gm, [D])
-    cue_first_Gs = []
-    arm_first_Gs = []
-    for i, policy in enumerate(gm.policies):
-        first_action = policy[0, 0]
-        if first_action == ACT_CUE:
-            cue_first_Gs.append(G_all[i])
-        elif first_action in (ACT_LEFT, ACT_RIGHT):
-            arm_first_Gs.append(G_all[i])
-
-    assert min(cue_first_Gs) < min(arm_first_Gs), (
-        "Across all policies, best cue-first should beat best arm-first"
-    )
+    # Every policy score agrees with the independent posterior-KL oracle.
+    from alf.tests.test_efe_oracle import posterior_kl_oracle
+    expected = []
+    for policy in gm.policies:
+        q = D.copy()
+        score = 0.0
+        for action in policy[:, 0]:
+            q = B[:, :, action] @ q
+            score += posterior_kl_oracle(A, q, C)[0]
+        expected.append(score)
+    np.testing.assert_allclose(evaluate_all_policies_sequential(gm, [D]), expected, atol=1e-10)
 
 
 if __name__ == "__main__":
